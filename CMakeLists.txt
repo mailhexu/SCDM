@@ -43,11 +43,17 @@ if(MPI_LINK_FLAGS)
       LINK_FLAGS "${MPI_Fortran_LINK_FLAGS}")
 endif()
 
-
-add_executable(testscdm
-  src/m_scdm.F90
-  src/test.F90
+add_executable(unittest
+  src/m_math.F90
+  src/unittest.F90
   )
 
 
-target_link_libraries(testscdm ${lapackblas_libraries} ${MPI_Fortran_LIBRARIES})
+target_link_libraries(unittest ${lapackblas_libraries} )
+
+#add_executable(testscdm
+#  src/m_math.F90
+#  src/unittest.F90
+#  )
+
+#target_link_libraries(testscdm ${lapackblas_libraries} ${MPI_Fortran_LIBRARIES})
