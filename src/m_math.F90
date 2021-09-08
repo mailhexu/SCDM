@@ -1,6 +1,5 @@
 #include "abi_common.h"
 
-
 module m_math
   use defs_basis
   implicit none
@@ -76,7 +75,7 @@ contains
     CALL DGESVD( 'All', 'All', M, N, A, LDA, S, U, LDU, VT, LDVT, &
          WORK, LWORK, INFO )
     IF( INFO.GT.0 ) THEN
-       WRITE(*,*)'The algorithm computing SVD failed to converge.'
+       ABI_ERROR('The algorithm computing SVD failed to converge.')
        STOP
     END IF
     ABI_SFREE(work)

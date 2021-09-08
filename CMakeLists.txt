@@ -24,9 +24,20 @@ endif()
 
 set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/mods)
 
+file(GLOB sourcefile
+    "src/*.h"
+    "src/*.F90")
+
+list(REMOVE_ITEM sourcefile
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/unittest.F90"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/computeU.F90"
+    #"${CMAKE_CURRENT_SOURCE_DIR}/src/read_inputs.F90"
+    #"${CMAKE_CURRENT_SOURCE_DIR}/src/generate_ham.F90"
+)
+
+
 add_library(scdm SHARED
-    src/defs_basis.F90
-    src/m_scdm.F90 
+    ${sourcefile}
     )
 
 target_link_libraries(scdm ${lapackblas_libraries} ${MPI_Fortran_LIBRARIES})
@@ -45,16 +56,11 @@ if(MPI_LINK_FLAGS)
 endif()
 
 add_executable(unittest
-    #src/m_clib.F90
-  #src/m_profiling_abi.F90
-  #src/m_errors.F90
-  src/defs_basis.F90
-  src/m_math.F90
-  src/unittest.F90
+    src/unittest.F90
   )
 
 
-target_link_libraries(unittest ${lapackblas_libraries} )
+target_link_libraries(unittest scdm ${lapackblas_libraries} )
 
 #add_executable(testscdm
 #  src/m_math.F90

@@ -5,10 +5,14 @@
 !> @description: Select Column Density matrix method for
 !   generating Wannier functions.
 !===============================================================
+
+#include "abi_common.h"
+
 module m_lwf
   use m_scdm, only: scdmk
+  use defs_basis, only: dp
   implicit none
-  integer, parameter :: dp = 8
+
   public :: lwf
   private
 
@@ -28,7 +32,7 @@ module m_lwf
    contains
      procedure :: initialize
      procedure :: finalize
-     procedure :: read_ifc
+     !procedure :: read_ifc
      procedure :: build_kmesh
      procedure :: get_eigen
      procedure :: build_lwf
@@ -45,6 +49,20 @@ contains
 
 
   subroutine write_lwf(self)
-    class(lwf) :: self
+    class(lwf) , intent(inout):: self
   end subroutine write_lwf
+
+  subroutine build_kmesh(self)
+    class(lwf) , intent(inout):: self
+  end subroutine build_kmesh
+
+  subroutine get_eigen(self)
+      class(lwf) , intent(inout):: self
+  end subroutine get_eigen
+
+  subroutine build_lwf(self)
+    class(lwf),intent(inout) :: self
+    
+  end subroutine build_lwf
+
 end module m_lwf
