@@ -1,7 +1,9 @@
+#include "abi_common.h"
+
+
 module m_math
+  use defs_basis
   implicit none
-  integer, parameter, public :: dp = 8
-  real(dp), parameter, public :: PI=3.1415926535
   real(dp), parameter, public :: tpi=2*PI
   complex(dp), parameter, public :: tpi_im = cmplx(0.0_dp, tpi, kind=dp)
 
@@ -31,21 +33,20 @@ contains
     rwork(:)=0.0_dp
     call ZGEQP3(m,n,A,m,piv,tau,tmp_work,-1,rwork,info)
     if(info/=0) then
-       print *, "Error in doing QRCP"
+       ABI_ERROR("Error in doing QRCP")
     endif
     Piv(:) = 0
     rwork(:) = 0.0_DP
     lwork = INT(AINT(REAL(tmp_work(1))))
 
-    ALLOCATE(work(lwork))
+    ABI_MALLOC(work,(lwork))
     work(:) = (0.0_DP,0.0_DP)
-    print *, "work allocated"
 
     CALL ZGEQP3(m,n,A,m,piv,tau,work,lwork,rwork,info)
     if(info/=0) then
-       print *, "Error in doing QRCP"
+       ABI_ERROR("Error in doing QRCP")
     endif
-    DEALLOCATE(work)
+    ABI_SFREE(work)
   end subroutine complex_QRCP_Piv_only
 
 
@@ -71,14 +72,14 @@ contains
          & tmp, LWORK, INFO )
     LWORK = MIN( LWMAX, INT( tmp( 1 ) ) )
 
-    allocate(work(lwork))
+    ABI_MALLOC(work, (lwork))
     CALL DGESVD( 'All', 'All', M, N, A, LDA, S, U, LDU, VT, LDVT, &
          WORK, LWORK, INFO )
     IF( INFO.GT.0 ) THEN
        WRITE(*,*)'The algorithm computing SVD failed to converge.'
        STOP
     END IF
-    deallocate(work)
+    ABI_SFREE(work)
   end subroutine real_svd
 
   subroutine complex_svd(A,  U, S, VT)
@@ -104,16 +105,16 @@ contains
     CALL ZGESVD( 'All', 'All', M, N, A, LDA, S, U, LDU, VT, LDVT,&
          & tmp, LWORK, rwork, INFO )
     LWORK = MIN( LWMAX, INT( tmp( 1 ) ) )
-    allocate(work(lwork))
-    allocate(rwork(min(M, N)*6))
+    ABI_MALLOC(work, (lwork))
+    ABI_MALLOC(rwork, (min(M, N)*6))
     CALL ZGESVD( 'All', 'All', M, N, A, LDA, S, U, LDU, VT, LDVT, &
          WORK, LWORK, rwork,INFO )
     IF( INFO.GT.0 ) THEN
        WRITE(*,*)'The algorithm computing SVD failed to converge.'
        STOP
     END IF
-    deallocate(work)
-    deallocate(rwork)
+    ABI_SFREE(work)
+    ABI_SFREE(rwork)
   end subroutine complex_svd
 
 

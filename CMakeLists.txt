@@ -25,6 +25,7 @@ endif()
 set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/mods)
 
 add_library(scdm SHARED
+    src/defs_basis.F90
     src/m_scdm.F90 
     )
 
@@ -44,6 +45,10 @@ if(MPI_LINK_FLAGS)
 endif()
 
 add_executable(unittest
+    #src/m_clib.F90
+  #src/m_profiling_abi.F90
+  #src/m_errors.F90
+  src/defs_basis.F90
   src/m_math.F90
   src/unittest.F90
   )

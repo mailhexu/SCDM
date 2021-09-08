@@ -1,4 +1,4 @@
-
+#include "abi_common.h"
 
 !===============================================================
 ! SCDM-k
@@ -83,7 +83,6 @@ contains
     integer, optional, intent(in) :: disentangle_func_type
     real, optional, intent(in) :: mu, sigma
     integer, optional, intent(in) :: exclude_bands(:)
-    ! allocate memories
 
     self%nkdim=size(kpts,1)
     self%nkpt=size(kpts,2)
@@ -93,7 +92,7 @@ contains
     self%anchor_kpt=anchor_kpt
     if(present(psi_phase)) then
        if (psi_phase) then
-          allocate(self%psi(self%nbasis, self%nband, self%nkpt))
+          ABI_MALLOC(self%psi, (self%nbasis, self%nband, self%nkpt))
           call self%remove_phase(psi)
            else
           self%psi => psi
@@ -102,17 +101,17 @@ contains
        self%psi => psi
     endif
     self%evals => evals
-    allocate(self%cols(self%nwann))
+    ABI_MALLOC(self%cols, (self%nwann))
     self%cols(:)=0
-    allocate(self%kpts(self%nkdim, self%nkpt))
+    ABI_MALLOC(self%kpts, (self%nkdim, self%nkpt))
     self%kpts=kpts
-    allocate(self%weight(self%nband, self%nkpt))
+    ABI_MALLOC(self%weight,(self%nband, self%nkpt))
     self%weight(:, :)=0.0_dp
-    allocate(self%positions_red(3, self%nbasis))
+    ABI_MALLOC(self%positions_red, (3, self%nbasis))
     self%positions_red=positions_red
-    allocate(self%anchor_kpt(size(anchor_kpt)))
+    ABI_MALLOC(self%anchor_kpt, (size(anchor_kpt)))
     self%anchor_kpt=anchor_kpt
-    allocate(self%anchor_ibands(size(anchor_ibands)))
+    ABI_MALLOC(self%anchor_ibands,(size(anchor_ibands)))
     self%anchor_ibands = anchor_ibands
     self%anchor_ikpt=self%find_kpoint(anchor_kpt)
 
@@ -134,26 +133,25 @@ contains
        self%sigma=sigma
     end if
 
-    allocate(self%Amnk(self%nband, self%nwann, self%nkpt))
-    allocate(self%psi_wann_k(self%nbasis, self%nwann, self%nkpt))
-    allocate(self%Hwannk(self%nwann, self%nwann, self%nkpt))
+    ABI_MALLOC(self%Amnk, (self%nband, self%nwann, self%nkpt))
+    ABI_MALLOC(self%psi_wann_k, (self%nbasis, self%nwann, self%nkpt))
+    ABI_MALLOC(self%Hwannk, (self%nwann, self%nwann, self%nkpt))
 
-    if(present(exclude_bands) then
-        allocate(self%exclude_bands(size(exclude_bands, 1))
+    if(present(exclude_bands)) then
+        ABI_MALLOC(self%exclude_bands, (size(exclude_bands, 1)))
     end if 
   end subroutine initialize
 
   subroutine finalize(self)
     class (scdmk), intent(inout) :: self
-    ! deallocate
-    deallocate(self%cols)
-    deallocate(self%kpts)
-    deallocate(self%positions_red)
-    deallocate(self%anchor_kpt)
-    deallocate(self%anchor_ibands)
-    deallocate(self%Amnk)
-    deallocate(self%psi_wann_k)
-    deallocate(self%Hwannk)
+    ABI_SFREE(self%cols)
+    ABI_SFREE(self%kpts)
+    ABI_SFREE(self%positions_red)
+    ABI_SFREE(self%anchor_kpt)
+    ABI_SFREE(self%anchor_ibands)
+    ABI_SFREE(self%Amnk)
+    ABI_SFREE(self%psi_wann_k)
+    ABI_SFREE(self%Hwannk)
   end subroutine finalize
 
   subroutine run_all(self)
@@ -226,7 +224,7 @@ contains
     end do
     ik=minloc(a, dim=1)
     if( a(ik)>0.001) then
-       print *, "Error in finding gamma point from kpoints, gamma not found. "
+       ABI_ERROR("Error in finding gamma point from kpoints, gamma not found. ")
     end if
   end function find_kpoint
 
@@ -285,9 +283,9 @@ contains
     real(dp), allocatable :: S(:)
     call complex_svd(psi_dagger(:, cols), U, S, VT)
     Amnk(:,:) = matmul(U, conjg(transpose(VT)))
-    deallocate(U)
-    deallocate(S)
-    deallocate(VT)
+    ABI_SFREE(U)
+    ABI_SFREE(S)
+    ABI_SFREE(VT)
   end subroutine get_Amnk
 
   subroutine get_WannR(self, Rgrid, Wann)
@@ -389,6 +387,7 @@ contains
     end do
     close(ifile)
   end subroutine write_Hwann
+
 
 end module m_scdm
 

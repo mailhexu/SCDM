@@ -1,3 +1,4 @@
+#include "abi_common.h"
 module utests
   implicit none
 
@@ -39,11 +40,11 @@ module utests
 
     AT=transpose(A)
     call complex_QRCP_piv_only(AT, Piv)
-    !print *, "piv:", Piv
     
     d=sum((Piv-[3,1,4,5,2])**2)
+
     if(d /= 0) then
-        print *, "complex QRCP piv only result is wrong"
+        ABI_ERROR("complex QRCP piv only result is wrong")
     end if
 
   end subroutine test_QRPiv
