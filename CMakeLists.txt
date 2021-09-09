@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.1)
-project(scdm)
 enable_language(Fortran)
+set(cmake_dir "${CMAKE_CURRENT_SOURCE_DIR}/CMake")
+
+list(INSERT CMAKE_MODULE_PATH 0 "${cmake_dir}")
+
+project(scdm)
+
 
 find_package(MPI REQUIRED)
 include_directories(${MPI_INCLUDE_PATH})
@@ -16,6 +21,12 @@ if(LAPACK_FOUND AND BLAS_FOUND)
    set(lapackblas_libraries ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
 endif()
 
+include(FindNetCDF)
+set (NETCDF_F90 "YES")
+find_package (NetCDF REQUIRED)
+include_directories(${NETCDF_INCLUDES})
+
+
 #include_directories(${MPI_Fortran_INCLUDE_PATH})
 #add_compile_options(${MPI_Fortran_COMPILE_FLAGS})
 
@@ -24,15 +35,21 @@ endif()
 
 set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/mods)
 
+set(HEADERS
+    "src/common/*.h"
+    )
+
 file(GLOB sourcefile
-    "src/*.h"
-    "src/*.F90")
+    "src/*.F90"
+    "src/common/*.F90"
+    "src/wannier/*.F90"
+    "src/tightbinding/*.F90"
+    "src/phonon/*.F90"
+    "src/unittests/*.F90"
+    )
 
 list(REMOVE_ITEM sourcefile
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/unittest.F90"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/computeU.F90"
-    #"${CMAKE_CURRENT_SOURCE_DIR}/src/read_inputs.F90"
-    #"${CMAKE_CURRENT_SOURCE_DIR}/src/generate_ham.F90"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/unittests/unittest.F90"
 )
 
 
@@ -40,7 +57,10 @@ add_library(scdm SHARED
     ${sourcefile}
     )
 
-target_link_libraries(scdm ${lapackblas_libraries} ${MPI_Fortran_LIBRARIES})
+target_include_directories(scdm PUBLIC
+    "src/common"
+    )
+target_link_libraries(scdm ${lapackblas_libraries} ${MPI_Fortran_LIBRARIES} ${NETCDF_LIBRARIES_F90})
 
 
 target_link_libraries(scdm )
@@ -56,11 +76,12 @@ if(MPI_LINK_FLAGS)
 endif()
 
 add_executable(unittest
-    src/unittest.F90
+    src/unittests/unittest.F90
   )
 
 
-target_link_libraries(unittest scdm ${lapackblas_libraries} )
+#target_link_libraries(unittest scdm ${lapackblas_libraries} ${NETCDF_LIBRARIES_F90})
+target_link_libraries(unittest scdm)
 
 #add_executable(testscdm
 #  src/m_math.F90
