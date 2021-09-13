@@ -8,6 +8,7 @@
 module m_scdm
     use defs_basis, only: dp, PI
     use m_math, only: complex_QRCP_piv_only, complex_svd, tpi_im, gaussian, fermi
+    use m_mathfuncs, only: eigensolver
     implicit none
     public :: scdmk_t
     public :: Amn_to_H
@@ -97,6 +98,8 @@ contains
         !else
         !    self%psi => psi
         !end if
+
+        self%psi => psi
         self%evals => evals
         ABI_MALLOC(self%cols, (self%nwann))
         self%cols(:) = 0
@@ -139,6 +142,8 @@ contains
 
     subroutine finalize(self)
         class(scdmk_t), intent(inout) :: self
+        nullify(self%psi)
+        nullify(self%evals)
         ABI_SFREE(self%cols)
         ABI_SFREE(self%kpts)
         ABI_SFREE(self%kweights)
@@ -187,36 +192,52 @@ contains
         integer :: ikpt, iband, iwann
         complex(dp) :: psi_dagger(self%nband, self%nbasis)
         complex(dp) :: tmp(self%nband, self%nwann)
+
+        type(eigensolver) :: esolver
+        real(dp) :: evals(self%nwann)
+        complex(dp) :: evecs(self%nwann, self%nwann)
         ! find anchor points, by default gamma
         if (size(self%anchor_ibands) /= 0) then
             self%anchor_ikpt = self%find_kpoint(self%anchor_kpt)
         end if
         ! calculate weight matrix for each kpoint
+        print *, "get_weight"
         do ikpt = 1, self%nkpt
             call self%get_weight(ikpt, self%disentangle_func_type, self%mu, self%sigma, self%weight(:, ikpt), &
               &project_to_anchor=self%project_to_anchor)
         end do
+
+        print *, "get columns for anchor kpoint"
         ! at anchor-kpoint, find cols
-        !psi: (ibasis, iband)
+        ! psi: (ibasis, iband)
         psi_dagger = transpose(conjg(self%psi(:, :, self%anchor_ikpt)))
+        print *, "psi_dagger found"
         do iband = 1, self%nband
             psi_dagger(iband, :) = psi_dagger(iband, :)*self%weight(iband, self%anchor_ikpt)
         end do
+
+        print *, "finding cols"
         call self%get_columns(psi_dagger, self%cols)
 
+        print *, "Cols: ", self%cols
         ! For each kpoint, calculate Amn matrix, wannier function, and Hk at k
         do ikpt = 1, self%nkpt
             do iband = 1, self%nband
-                psi_dagger(:, iband) = psi_dagger(:, iband)*self%weight(iband, self%anchor_ikpt)
+               psi_dagger(iband, :) = conjg(self%psi(:, iband, ikpt))*self%weight(iband, ikpt)
             end do
-
             !Amnk (nband, nwann, nkpt)
             call self%get_Amnk(psi_dagger, self%cols, self%Amnk(:, :, ikpt))
-
+            ! psik * Amnk
             self%psi_wann_k(:, :, ikpt) = matmul(self%psi(:, :, ikpt), self%Amnk(:, :, ikpt))
 
             call Amn_to_H_from_evals(self%Amnk(:, :, ikpt), self%evals(:, ikpt), &
                     & self%nbasis, self%nwann, self%nband, self%Hwannk(:, :, ikpt))
+
+            print *, "Oevals", self%evals(:, ikpt)
+            evecs=self%Hwannk(:,:, ikpt)
+            call esolver%run(evals, evecs)
+            print *, "Wevals", evals
+
         end do
 
         ! Fourier transform of wannier function to real space
@@ -305,7 +326,6 @@ contains
         complex(dp), intent(in) :: psi_dagger(:, :)
         integer :: piv(size(psi_dagger, 2))
         integer, intent(inout) :: cols(self%nwann)
-
         call complex_QRCP_piv_only(psi_dagger, piv)
         cols = piv(:self%nwann)
     end subroutine get_columns
@@ -314,14 +334,16 @@ contains
         class(scdmk_t), intent(inout) :: self
         complex(dp), intent(in) :: psi_dagger(self%nband, self%nbasis)
         integer :: cols(:)
-        complex(dp), intent(inout) :: Amnk(self%nbasis, self%nwann)
+        complex(dp), intent(inout) :: Amnk(self%nband, self%nwann)
 
-        complex(dp) :: U(self%nband, self%nband), VT(self%nwann, self%nwann)
+        complex(dp) :: U(self%nband, self%nwann), VT(self%nwann, self%nwann)
         real(dp) :: S(self%nband)
         ! orthogonalize selected columns
-        call complex_svd(psi_dagger(:, cols), U, S, VT)
-        Amnk(:, :) = matmul(U, conjg(transpose(VT)))
-    end subroutine get_Amnk
+        call complex_svd(psi_dagger(:, cols), U, S, VT, 'S')
+        !print *, "U", U
+        !print *, "VT",  VT
+        Amnk(:, :) = matmul(U, VT)
+      end subroutine get_Amnk
 
     subroutine get_WannR(self, Rgrid, Wann)
         class(scdmk_t), intent(inout) :: self

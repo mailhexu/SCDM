@@ -52,6 +52,7 @@ contains
         complex(dp), allocatable :: evecs(:, :, :) ! nbasis, nband, nkpt
         integer :: exclude_bands(0)
 
+        print *, "Reading TB Hamiltonian"
         fname = "/home/hexu/projects/computeU/test/SrTiO3/STO.nc"
         call ham%read_from_netcdf(fname)
         kmesh = [7, 7, 7]
@@ -61,13 +62,20 @@ contains
         ABI_MALLOC(evals, (nbasis, nkpt))
         ABI_MALLOC(evecs, (nbasis, nbasis, nkpt))
         call ham%solve_all(kpts%kpts, evals, evecs)
+        print *, "Initialize scdmk for tb."
         call scdmk%initialize(evals=evals, psi=evecs, &
             &kpts=kpts%kpts, kweights=kpts%kweights, &
         &  nwann=5,  &
-        & disentangle_func_type=2, mu=0.0, sigma=1.5, &
+        & disentangle_func_type=3, mu=6.0, sigma=3.5, &
         & exclude_bands=exclude_bands )
 
+        print *, "E{gamma}", evals(:,1)
+        print *, "Setting anchor point"
         call scdmk%set_anchor(anchor_kpt=[0.0_dp, 0.0_dp, 0.0_dp], anchor_ibands=[1,2,3, 4, 5])
+
+        call scdmk%run_all()
+
+
         ABI_FREE(evals)
         ABI_FREE(evecs)
     end subroutine test_tb_scdm

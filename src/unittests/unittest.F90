@@ -16,7 +16,7 @@ contains
             3.16, 7.98, 3.01, 5.80, 4.27, -5.31 &
             /
 
-        call complex_svd(A, U, S, VT)
+        call complex_svd(A, U, S, VT, 'A')
         print *, "U", U
         print *, "S", S
     end subroutine test_complex_svd
@@ -51,12 +51,17 @@ end module utests
 program utest
     use utests
     use m_tb_scdm, only: test_tb_scdm
+    use m_kpoints, only: test_kpoints
 
-    !call test_complex_svd()
     print *, "testing complex QRpiv"
     call test_QRPiv()
 
+
+    print *, "testing kpoints"
+    call test_kpoints()
+
     print *, "testing tight binding"
-    call test_tb_scdm
+    call test_tb_scdm()
+
 end program utest
 

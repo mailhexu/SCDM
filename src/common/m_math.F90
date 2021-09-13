@@ -81,10 +81,11 @@ contains
     ABI_SFREE(work)
   end subroutine real_svd
 
-  subroutine complex_svd(A,  U, S, VT)
+  subroutine complex_svd(A,  U, S, VT, mode)
     complex(dp), intent(in) :: A(:, :)
     complex(dp), intent(inout) :: U(:, :),  VT(:,:)
     real(dp), intent(inout) :: S(:)
+    character, intent(in) :: mode  ! A, or S, or N/O
     integer:: LWMAX
     complex(dp) :: tmp(2)
     complex(dp), allocatable::  WORK(:)
@@ -101,12 +102,12 @@ contains
     LDU = M
     LDVT = N
     LWORK = -1
-    CALL ZGESVD( 'All', 'All', M, N, A, LDA, S, U, LDU, VT, LDVT,&
+    CALL ZGESVD( mode, mode, M, N, A, LDA, S, U, LDU, VT, LDVT,&
          & tmp, LWORK, rwork, INFO )
     LWORK = MIN( LWMAX, INT( tmp( 1 ) ) )
     ABI_MALLOC(work, (lwork))
     ABI_MALLOC(rwork, (min(M, N)*6))
-    CALL ZGESVD( 'All', 'All', M, N, A, LDA, S, U, LDU, VT, LDVT, &
+    CALL ZGESVD( mode, mode, M, N, A, LDA, S, U, LDU, VT, LDVT, &
          WORK, LWORK, rwork,INFO )
     IF( INFO.GT.0 ) THEN
        WRITE(*,*)'The algorithm computing SVD failed to converge.'

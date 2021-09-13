@@ -124,6 +124,7 @@ contains
   end subroutine set_basis_indices
 
   subroutine add_new_R(self, R)
+    ! add an H(R) to the Hamiltonian.
     class(TBHam),intent(inout) :: self
     integer, intent(in) ::  R(3)
     integer, allocatable :: tmp_Rlist(:,:)
@@ -148,6 +149,7 @@ contains
   end subroutine add_new_R
 
 
+  ! set one Hij(R)
   subroutine set_HijR(self, i,j, R, val)
     class(TBHam),intent(inout) :: self
     integer, intent(in) :: i, j, R(3)
@@ -158,6 +160,7 @@ contains
     call self%set_Hij_indR(i,j, iR, val)
   end subroutine set_HijR
 
+  ! set one Hij(R) but using the index of R in the Rlist
   subroutine set_Hij_indR(self, i,j, iR, val)
     class(TBHam),intent(inout) :: self
     integer, intent(in) :: i, j, iR
@@ -234,6 +237,7 @@ contains
     end do
   end subroutine Get_Hk
 
+  ! get the eigenvalues and eigenvectors for one kpoint.
   subroutine solve(self, k, evals, evecs)
     class(TBHam), intent(inout) :: self
     real(dp), intent(in) :: k(:)
