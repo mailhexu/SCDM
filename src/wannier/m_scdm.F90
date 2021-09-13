@@ -6,422 +6,443 @@
 !   generating Wannier functions.
 !===============================================================
 module m_scdm
-  use defs_basis, only: dp, PI
-  use m_math, only: complex_QRCP_piv_only, complex_svd, tpi_im, gaussian, fermi
-  implicit none
-  public :: scdmk
-  public :: Amn_to_H
-  private
+    use defs_basis, only: dp, PI
+    use m_math, only: complex_QRCP_piv_only, complex_svd, tpi_im, gaussian, fermi
+    implicit none
+    public :: scdmk_t
+    public :: Amn_to_H
+    private
 
-  !===============================================================
-  ! scdmk type:
-  !> @ description: the class for scdmk method.
-  !===============================================================
-  type::  scdmk
-     real(dp), pointer :: evals(:, :)=> null()   !(iband, ikpt)
-     complex(dp), pointer :: psi(:,:,:)=>null() ! (ibasis, iband, ikpt)
-     real(dp), allocatable :: kpts(:,:) !(idim, ikpt)
-     real(dp), allocatable :: kweights(:) !(ikpt)
-     real(dp), allocatable :: positions_red(:,:) !(idim, ibasis)
-     real(dp), allocatable :: weight(:,:) !(iband, ikpt)
-     integer, allocatable :: cols(:)
-     real(dp), allocatable :: anchor_kpt(:)
-     integer :: anchor_ikpt
-     integer, allocatable :: anchor_ibands(:)
-     integer :: nwann, nkpt, nband, nbasis, nkdim
-     integer :: dim ! dimension of position
-     integer :: ik_anchor
-     integer :: disentangle_func_type
-     real(dp) :: mu, sigma
-     complex(dp), allocatable :: Amnk(:, :, :) !(nband, nwann, nkpt)
-     complex(dp), allocatable :: Hwannk(:,:,:) !(nwann, nwann, nkpt)
-     complex(dp), allocatable :: psi_wann_k(:,:,:)  !(nbasis, nwann, nkpt)
-     integer, allocatable :: exclude_bands(:)
-   contains
-     procedure :: initialize
-     procedure :: finalize
-     procedure :: run_all
-     procedure :: find_kpoint
-     procedure :: remove_phase
-     procedure :: get_columns
-     procedure :: get_Amnk ! Amnk for all kpoints
-     !procedure :: get_anchor_projections
-     procedure :: get_weight
-     !procedure :: select_column
-     procedure :: get_HwannR
-     procedure :: get_WannR
-     procedure :: write_Amnk
-     procedure :: write_Hwann
-  end type scdmk
-
-
+    !===============================================================
+    ! scdmk type:
+    !> @ description: the class for scdmk method.
+    !===============================================================
+    type::  scdmk_t
+        real(dp), pointer :: evals(:, :) => null()   !(iband, ikpt)
+        complex(dp), pointer :: psi(:, :, :) => null() ! (ibasis, iband, ikpt)
+        real(dp), allocatable :: kpts(:, :) !(idim, ikpt)
+        real(dp), allocatable :: kweights(:) !(ikpt)
+        real(dp), allocatable :: weight(:, :) !(iband, ikpt)
+        integer, allocatable :: cols(:)
+        real(dp), allocatable :: anchor_kpt(:)
+        integer :: anchor_ikpt
+        integer, allocatable :: anchor_ibands(:)
+        integer :: nwann, nkpt, nband, nbasis, nkdim
+        integer :: dim ! dimension of position
+        integer :: ik_anchor
+        integer :: disentangle_func_type
+        real(dp) :: mu, sigma
+        complex(dp), allocatable :: Amnk(:, :, :) !(nband, nwann, nkpt)
+        complex(dp), allocatable :: Hwannk(:, :, :) !(nwann, nwann, nkpt)
+        complex(dp), allocatable :: psi_wann_k(:, :, :)  !(nbasis, nwann, nkpt)
+        integer, allocatable :: exclude_bands(:)
+        logical :: project_to_anchor = .False.
+    contains
+        procedure :: initialize
+        procedure :: finalize
+        procedure :: run_all
+        procedure :: find_kpoint
+        !procedure :: remove_phase
+        procedure :: auto_find_anchors
+        procedure :: get_columns
+        procedure :: get_Amnk ! Amnk for all kpoints
+        !procedure :: get_anchor_projections
+        procedure :: get_weight
+        procedure :: set_anchor
+        !procedure :: select_column
+        procedure :: get_HwannR
+        procedure :: get_WannR
+        procedure :: write_Amnk
+        procedure :: write_Hwann
+    end type scdmk_t
 
 contains
 
-  !===============================================================
-  !
-  !> @
-  !> evals: pointer to eigen values. 2D real matrix. The indices are (iband, ikpt).
-  !> psi: pointer to wavefunctions. complex matrix. The indices are (ibasis, iband, ikpt)
-  !> kpts: kpoints. indices: (idim, ikpt)
-  !> kweights: kweights. indices: (ikpt)
-  !> positions_red: reduced coordinate of each basis.
-  !> nwann: number of Wannier functions to be calcualted.
-  !> anchor_kpt: anchor kpoint (optional).
-  !> anchor_ibands: the indices of mode used as anchor points (optional).
-  !> psi_phase:  whether the psi is the periodic part, or with a phase factor exp(ikr)
-  !> disentangle_func_type: the type of the disentanglement function. 1: unity function. 2. Fermi. 3. Gauss 
-  !===============================================================
-  subroutine initialize(self, evals, psi, kpts, kweights, positions_red, nwann, anchor_kpt, &
-       &anchor_ibands, psi_phase, disentangle_func_type, mu, sigma, exclude_bands)
-    class(scdmk), intent(inout) :: self
-    integer, intent(in) :: nwann,  anchor_ibands(:)
-    real(dp), intent(in), target :: evals(:, :)   !(iband, ikpt)
-    complex(dp), intent(in), target :: psi(:,:,:) ! (ibasis, iband, ikpt)
-    real(dp), intent(in) :: kpts(:,:)  !(idim, ikpt)
-    real(dp), intent(in) :: kweights(:)  !(ikpt)
-    real(dp), intent(in) :: positions_red(:,:) !(idim, ibasis)
-    real(dp), intent(in) :: anchor_kpt(:)
-    logical, optional, intent(in) :: psi_phase
-    integer, optional, intent(in) :: disentangle_func_type
-    real, optional, intent(in) :: mu, sigma
-    integer, optional, intent(in) :: exclude_bands(:)
-
-    self%nkdim=size(kpts,1)
-    self%nkpt=size(kpts,2)
-    self%nbasis=size(psi, 1)
-    self%nband=size(psi, 2)
-    self%nwann=nwann
-    self%anchor_kpt=anchor_kpt
-    if(present(psi_phase)) then
-       if (psi_phase) then
-          ABI_MALLOC(self%psi, (self%nbasis, self%nband, self%nkpt))
-          call self%remove_phase(psi)
-           else
-          self%psi => psi
-       end if
-    else
-       self%psi => psi
-    endif
-    self%evals => evals
-    ABI_MALLOC(self%cols, (self%nwann))
-    self%cols(:)=0
-    ABI_MALLOC(self%kpts, (self%nkdim, self%nkpt))
-    self%kpts=kpts
-    ABI_MALLOC(self%kweights, (self%nkpt))
-    self%kweights=kweights
-
-    ABI_MALLOC(self%weight,(self%nband, self%nkpt))
-    self%weight(:, :)=0.0_dp
-    ABI_MALLOC(self%positions_red, (3, self%nbasis))
-    self%positions_red=positions_red
-    ABI_MALLOC(self%anchor_kpt, (size(anchor_kpt)))
-    self%anchor_kpt=anchor_kpt
-    ABI_MALLOC(self%anchor_ibands,(size(anchor_ibands)))
-    self%anchor_ibands = anchor_ibands
-    self%anchor_ikpt=self%find_kpoint(anchor_kpt)
-
-    if(present(disentangle_func_type)) then
-       self%disentangle_func_type=disentangle_func_type
-    else
-       self%disentangle_func_type=0
-    end if
-
-    if(present(mu)) then
-       self%mu=mu
-    else
-       self%mu=0
-    end if
-
-    if(present(sigma)) then
-       self%sigma=sigma
-    else
-       self%sigma=sigma
-    end if
-
-    ABI_MALLOC(self%Amnk, (self%nband, self%nwann, self%nkpt))
-    ABI_MALLOC(self%psi_wann_k, (self%nbasis, self%nwann, self%nkpt))
-    ABI_MALLOC(self%Hwannk, (self%nwann, self%nwann, self%nkpt))
-
-    if(present(exclude_bands)) then
-        ABI_MALLOC(self%exclude_bands, (size(exclude_bands, 1)))
-    end if 
-  end subroutine initialize
-
-  subroutine finalize(self)
-    class (scdmk), intent(inout) :: self
-    ABI_SFREE(self%cols)
-    ABI_SFREE(self%kpts)
-    ABI_SFREE(self%kweights)
-    ABI_SFREE(self%positions_red)
-    ABI_SFREE(self%anchor_kpt)
-    ABI_SFREE(self%anchor_ibands)
-    ABI_SFREE(self%Amnk)
-    ABI_SFREE(self%psi_wann_k)
-    ABI_SFREE(self%Hwannk)
-  end subroutine finalize
-
-  subroutine run_all(self)
-    class(scdmk), intent(inout) :: self
-    integer :: ikpt, iband, iwann
-    complex(dp) :: psi_dagger(self%nband, self%nbasis)
-    complex(dp) :: tmp(self%nband, self%nwann)
-    ! find anchor points, by default gamma
-    if(size(self%anchor_ibands)/=0) then
-       self%anchor_ikpt=self%find_kpoint(self%anchor_kpt)
-    end if
-    ! calculate weight matrix for each kpoint
-    do ikpt=1, self%nkpt
-       call self%get_weight(ikpt, self%disentangle_func_type, self%mu, self%sigma, self%weight(:, ikpt))
-    end do
-    ! at anchor-kpoint, find cols
-    !psi: (ibasis, iband)
-    psi_dagger= transpose(conjg(self%psi(:, :, self%anchor_ikpt)))
-    do iband =1, self%nband
-       psi_dagger(iband, :) = psi_dagger(iband, :) * self%weight(iband, self%anchor_ikpt)
-    end do
-    call self%get_columns(psi_dagger, self%cols )
-
-    ! For each kpoint, calculate Amn matrix, wannier function, and Hk at k
-    do ikpt=1, self%nkpt
-      do iband=1, self%nband
-        psi_dagger(:, iband) = psi_dagger(:, iband) * self%weight(iband, self%anchor_ikpt)
-      end do  
-
-       !Amnk (nband, nwann, nkpt)
-       call self%get_Amnk(psi_dagger, self%cols, self%Amnk(:, :, ikpt))
-
-       self%psi_wann_k(:,:, ikpt)=matmul(self%psi(:,:, ikpt), self%Amnk(:,:, ikpt))
-
-       call Amn_to_H_from_evals(self%Amnk(:,:, ikpt), self%evals(:, ikpt), &
-               & self%nbasis, self%nwann, self%nband, self%Hwannk(:,:, ikpt))
-    end do
-
-    ! Fourier transform of wannier function to real space
-    !call self%get_WannR(Rgrid, self%psi_wann_k)
-    !call self%get_HwannR(Rgrid, self%Hwannk)
-  end subroutine run_all
-
-  subroutine remove_phase(self, psip)
-    class(scdmk), intent(inout) :: self
-    complex(dp), intent(in) :: psip(:,:,:) ! (ibasis, iband, ikpt)
-    !complex(dp), intent(out) :: psi(:,:,:) ! (ibasis, iband, ikpt)
-    integer :: ikpt, ibasis
-    complex(dp) :: phase
-    do ikpt=1, self%nkpt
-       do ibasis=1, self%nbasis
-          phase = exp(-tpi_im * dot_product(self%kpts(:, ikpt), self%positions_red(:,ibasis)) )
-          self%psi(ibasis, :, ikpt) = psip(ibasis, :, ikpt) * phase
-       end do
-    end do
-  end subroutine remove_phase
-
-  !===============================================================
-  ! Find one kpoint in a list of kpoints.
-  !> @
-  !===============================================================
-  function find_kpoint(self, kpoint) result(ik)
-    class (scdmk), intent(inout) :: self
-    real(dp), intent(in) :: kpoint(:)
-    integer :: ik
-    integer :: i
-    real(dp) :: a(size(self%kpts,1))
-    ! should transfer back to 1st BZ?
-    do i =1, size(self%kpts, 2)
-       a(:)= sum((self%kpts(:, i)-kpoint) **2)
-    end do
-    ik=minloc(a, dim=1)
-    if( a(ik)>0.001) then
-       ABI_ERROR("Error in finding kpoint from kpoint list. ")
-    end if
-  end function find_kpoint
-
-  !===============================================================
-  ! Calculate the weight function for each mode described by iband and ikpt
-  ! The
-  !> @
-  !===============================================================
-  subroutine get_weight(self, ikpt, type, mu, sigma, weight)
-    class(scdmk), intent(inout) :: self
-    integer, intent(in) :: ikpt, type
-    real(dp), intent(in) :: mu, sigma
-    real(dp), intent(inout) :: weight(self%nband)
-    integer :: iband, ianchor
-    select case(type)
-    case(1)
-       weight(:) = 1.0
-    case(2)
-       do iband=1, self%nband
-          weight(iband) = fermi( self%evals(iband, ikpt), mu, sigma)
-       end do
-    case(3)
-       do iband=1, self%nband
-          weight(iband) = gaussian( self%evals(iband, ikpt), mu, sigma)
-       end do
-    case default
-      ABI_ERROR("The disentanglement function type can only be 1:unity, 2: fermi, 3: gaussian")
-    end select
-
-
-    if(size(self%anchor_ibands) /= 0) then
-       do iband=1, self%nband
-          do ianchor=1, size(self%anchor_ibands)
-             weight(iband)=weight(iband)* real(dot_product(  &
-                  & conjg(self%psi(:, ianchor, self%anchor_ikpt)), &
-                  & self%psi(:, iband, ikpt) ))
-          end do
-       end do
-    end if
-  end subroutine get_weight
-
-  subroutine get_columns(self, psi_dagger, cols)
-    class(scdmk), intent(inout) :: self
-    complex(dp), intent(in) :: psi_dagger(:,:)
-    integer :: piv(size(psi_dagger, 2))
-    integer, intent(inout) :: cols(self%nwann)
-
-    call complex_QRCP_piv_only(psi_dagger, piv)
-    cols=piv(:self%nwann)
-  end subroutine get_columns
-
-
-  subroutine get_Amnk(self, psi_dagger, cols,  Amnk)
-    class(scdmk), intent(inout) :: self
-    complex(dp), intent(in) :: psi_dagger(self%nband,self%nbasis)
-    integer :: cols(:)
-    complex(dp), intent(inout) :: Amnk(self%nbasis, self%nwann)
-
-    complex(dp) :: U(self%nband, self%nband), VT(self%nwann, self%nwann)
-    real(dp) :: S(self%nband)
-    ! orthogonalize selected columns
-    call complex_svd(psi_dagger(:, cols), U, S, VT)
-    Amnk(:,:) = matmul(U, conjg(transpose(VT)))
-  end subroutine get_Amnk
-
-  
-  
-  subroutine get_WannR(self, Rgrid, Wann)
-    class(scdmk), intent(inout) :: self
-    integer, intent(in) :: Rgrid(:, :)
-    real(dp) :: Wann(self%nbasis, self%nwann, size(Rgrid, 2))
-    complex(dp) :: Wann_complex(self%nbasis, self%nwann, size(Rgrid, 2))
-    integer :: ik, iR, nR
-    nR=size(Rgrid, 2)
-    Wann_complex(:, :,:)=cmplx(0.0,0.0, dp)
-    do ik=1, self%nkpt
-       do iR=1, nR
-          Wann_complex(:,:, iR) = self%psi_wann_k(:,:, ik) * exp(tpi_Im*dot_product(self%kpts(:, ik), Rgrid(:, iR)))
-       end do
-    end do
-    Wann=real(real(Wann_complex))
-  end subroutine get_WannR
-
-  subroutine get_HwannR(self, Rgrid, HR)
-    class(scdmk), intent(inout) :: self
-    integer, intent(in) :: Rgrid(:, :)
-    complex(dp), intent(out) :: HR(self%nwann, self%nwann, size(Rgrid,2))
-    !-- H(R)= \sum_k H(k) * exp(i2pi k.R)
-    integer :: ik, iR, nR
-    nR=size(Rgrid, 2)
-    HR(:, :,:)=cmplx(0.0,0.0, dp)
-    do ik=1, self%nkpt
-       do iR=1, nR
-          HR(:,:, iR) = self%Hwannk(:,:, ik) * exp(tpi_Im*dot_product(self%kpts(:, ik), Rgrid(:, iR)))
-       end do
-    end do
-  end subroutine get_HwannR
-
-  subroutine Amn_to_H_from_evals(Amn, evals, nbasis, nwann, nband, Hwann)
-  implicit none
-  complex(dp),intent(in) :: Amn(nband, nwann)
-  real(dp), intent(in) :: evals(nband) 
-  integer,intent(in) :: nbasis, nwann, nband
-  complex(dp), intent(inout) :: Hwann(nwann, nwann)
-
-  integer :: i
-  complex(dp) :: tmp(nwann, nband)
-
-  ! A\dagger E
-  do i = 1, nband
-    tmp(:, i) =  conjg(Amn(i, :)) * evals(i)
-  end do
-  ! Hwann=A\dagger @ E @ A
-  Hwann = matmul(tmp, Amn)
-  end subroutine Amn_to_H_from_evals
-
-  subroutine Amn_to_H(Amn, psi, H0, nbasis, nwann, nband, Hwann)
-    ! Hwann = psi\dagger A
-    complex(dp), intent(in) :: Amn(:,:), psi(:,:), H0(:,:)
-    complex(dp), intent(inout) :: Hwann(:,:)
-    integer, intent(in) :: nbasis, nwann, nband
-    complex(dp) :: tmp(nbasis, nwann)
-    !Hwann = A_dagger@psi_dagger@H0@psi@A
-    tmp(:,:)=matmul(psi, Amn)
-    Hwann=matmul(matmul(transpose(conjg(tmp)), H0), tmp)
-  end subroutine Amn_to_H
-
-  subroutine write_Amnk(self, fname)
-    ! write to Amnk file
-    class(scdmk), intent(inout) :: self
-    character(len=*), intent(in) :: fname
-    integer :: iwann, iband, ikpt, locibnd
-    integer :: iun_amn
-
-    
-    iun_amn=101
-    OPEN (unit=iun_amn, file=trim(fname)//".amn",form='formatted')
-
-    !IF (wan_mode=='standalone') THEN
-    !   iun_amn = find_free_unit()
-    !   IF (ionode) OPEN (unit=iun_amn, file=trim(seedname)//".amn",form='formatted')
-    !ENDIF
-
-    !WRITE(stdout,'(a,i8)') '  AMN: iknum = ',iknum
+    !===============================================================
     !
-    !IF (wan_mode=='standalone') THEN
-    !   CALL date_and_tim( cdate, ctime )
-    !   header='Created on '//cdate//' at '//ctime//' with SCDM '
-    !   IF (ionode) THEN
-    !      WRITE (iun_amn,*) header
-    !      WRITE (iun_amn,'(3i8,xxx,2f10.6)') numbands,  iknum, n_wannier, scdm_mu, scdm_sigma
-    !   ENDIF
-    !ENDIF
+    !> @
+    !> evals: pointer to eigen values. 2D real matrix. The indices are (iband, ikpt).
+    !> psi: pointer to wavefunctions. complex matrix. The indices are (ibasis, iband, ikpt)
+    !> kpts: kpoints. indices: (idim, ikpt)
+    !> kweights: kweights. indices: (ikpt)
+    !> nwann: number of Wannier functions to be calcualted.
+    !> disentangle_func_type: the type of the disentanglement function. 1: unity function. 2. Fermi. 3. Gauss
+    !> project_to_anchor: whether to multiply the weight function by the projection to the anchor states. 
+    !===============================================================
+    subroutine initialize(self, evals, psi, kpts, kweights,  nwann, &
+        &  disentangle_func_type, mu, sigma, exclude_bands, project_to_anchor)
+        class(scdmk_t), intent(inout) :: self
+        integer, intent(in) :: nwann
+        real(dp), intent(in), target :: evals(:, :)   !(iband, ikpt)
+        complex(dp), intent(in), target :: psi(:, :, :) ! (ibasis, iband, ikpt)
+        real(dp), intent(in) :: kpts(:, :)  !(idim, ikpt)
+        real(dp), intent(in) :: kweights(:)  !(ikpt)
+        integer, optional, intent(in) :: disentangle_func_type
+        real, optional, intent(in) :: mu, sigma
+        integer, optional, intent(in) :: exclude_bands(:)
+        logical, optional, intent(in) :: project_to_anchor
 
-    do ikpt =1, self%nkpt
-       do iwann = 1, self%nwann
-          locibnd = 0
-          do iband = 1,self%nband
-             !IF (excluded_band(iband)) CYCLE
-             locibnd = locibnd + 1
-             WRITE(iun_amn,'(3i5,2f18.12)') locibnd, iwann, ikpt, &
-                  & REAL(self%Amnk(locibnd,iwann,ikpt)), &
-                  & AIMAG(self%Amnk(locibnd,iwann, ikpt))
-          enddo
-       enddo
-    enddo
+        self%nkdim = size(kpts, 1)
+        self%nkpt = size(kpts, 2)
+        self%nbasis = size(psi, 1)
+        self%nband = size(psi, 2)
+        self%nwann = nwann
+        !if (present(psi_phase)) then
+        !    if (psi_phase) then
+        !        ABI_MALLOC(self%psi, (self%nbasis, self%nband, self%nkpt))
+        !        call self%remove_phase(psi)
+        !    else
+        !        self%psi => psi
+        !    end if
+        !else
+        !    self%psi => psi
+        !end if
+        self%evals => evals
+        ABI_MALLOC(self%cols, (self%nwann))
+        self%cols(:) = 0
+        ABI_MALLOC(self%kpts, (self%nkdim, self%nkpt))
+        self%kpts = kpts
+        ABI_MALLOC(self%kweights, (self%nkpt))
+        self%kweights = kweights
 
-    close(iun_amn)
-  end subroutine write_Amnk
+        ABI_MALLOC(self%weight, (self%nband, self%nkpt))
+        self%weight(:, :) = 0.0_dp
 
-  subroutine write_Hwann(self, HR, Rgrid, fname)
-    class(scdmk), intent(inout) :: self
-    complex(dp), intent(in) :: HR(:, :, :)
-    integer, intent(in) :: Rgrid(:, :)
-    character(len=*), intent(in) :: fname
-    integer :: iR ,ifile, iwann1, iwann2
-    ifile=103
-    OPEN (unit=ifile, file=trim(fname)//".amn",form='formatted')
-    do iR=1, size(Rgrid, 2)
-       WRITE(ifile, '(3i5)') Rgrid(:, iR)
-       do iwann1 =1, self%nwann
-          do iwann2 =1, self%nwann
-             WRITE(ifile, '(f18.12)') HR(iwann1, iwann2, iR)
-          end do
-       end do
-    end do
-    close(ifile)
-  end subroutine write_Hwann
+        if (present(disentangle_func_type)) then
+            self%disentangle_func_type = disentangle_func_type
+        else
+            self%disentangle_func_type = 0
+        end if
 
+        if (present(mu)) then
+            self%mu = mu
+        else
+            self%mu = 0
+        end if
+
+        if (present(sigma)) then
+            self%sigma = sigma
+        else
+            self%sigma = sigma
+        end if
+
+        ABI_MALLOC(self%Amnk, (self%nband, self%nwann, self%nkpt))
+        ABI_MALLOC(self%psi_wann_k, (self%nbasis, self%nwann, self%nkpt))
+        ABI_MALLOC(self%Hwannk, (self%nwann, self%nwann, self%nkpt))
+
+        if (present(exclude_bands)) then
+            ABI_MALLOC(self%exclude_bands, (size(exclude_bands, 1)))
+        end if
+
+        if (present(project_to_anchor)) self%project_to_anchor=project_to_anchor
+   end subroutine initialize
+
+    subroutine finalize(self)
+        class(scdmk_t), intent(inout) :: self
+        ABI_SFREE(self%cols)
+        ABI_SFREE(self%kpts)
+        ABI_SFREE(self%kweights)
+        ABI_SFREE(self%anchor_kpt)
+        ABI_SFREE(self%anchor_ibands)
+        ABI_SFREE(self%Amnk)
+        ABI_SFREE(self%psi_wann_k)
+        ABI_SFREE(self%Hwannk)
+    end subroutine finalize
+
+    ! automatically set the anchor points using the weight functions.
+    ! The bands with the largest weights are selected as the anchor points. 
+    subroutine auto_find_anchors(self)
+        class(scdmk_t), intent(inout) :: self
+        integer :: i
+        do i = 1, self%nwann
+            self%anchor_ibands(i) = i
+        end do
+
+    end subroutine auto_find_anchors
+
+    subroutine set_anchor(self, anchor_kpt, anchor_ibands)
+        !> anchor_kpt: anchor kpoint (optional).
+        !> anchor_ibands: the indices of mode used as anchor points (optional).
+        class(scdmk_t), intent(inout) :: self
+        real(dp), optional, intent(in) ::  anchor_kpt(:)
+        integer, optional, intent(in) :: anchor_ibands(:)
+
+        if (.not. present(anchor_ibands)) then
+            call self%auto_find_anchors()
+        else if (.not. size(anchor_ibands) == self%nwann) then
+            ABI_ERROR("The number of anchor points should be equal to the number of Wannier functions.")
+        else
+            ABI_MALLOC(self%anchor_kpt, (size(anchor_kpt)))
+            self%anchor_kpt = anchor_kpt
+            self%anchor_ikpt = self%find_kpoint(anchor_kpt)
+
+            ABI_MALLOC(self%anchor_ibands, (size(anchor_ibands)))
+            self%anchor_ibands = anchor_ibands
+        end if
+
+    end subroutine set_anchor
+
+    subroutine run_all(self)
+        class(scdmk_t), intent(inout) :: self
+        integer :: ikpt, iband, iwann
+        complex(dp) :: psi_dagger(self%nband, self%nbasis)
+        complex(dp) :: tmp(self%nband, self%nwann)
+        ! find anchor points, by default gamma
+        if (size(self%anchor_ibands) /= 0) then
+            self%anchor_ikpt = self%find_kpoint(self%anchor_kpt)
+        end if
+        ! calculate weight matrix for each kpoint
+        do ikpt = 1, self%nkpt
+            call self%get_weight(ikpt, self%disentangle_func_type, self%mu, self%sigma, self%weight(:, ikpt), &
+              &project_to_anchor=self%project_to_anchor)
+        end do
+        ! at anchor-kpoint, find cols
+        !psi: (ibasis, iband)
+        psi_dagger = transpose(conjg(self%psi(:, :, self%anchor_ikpt)))
+        do iband = 1, self%nband
+            psi_dagger(iband, :) = psi_dagger(iband, :)*self%weight(iband, self%anchor_ikpt)
+        end do
+        call self%get_columns(psi_dagger, self%cols)
+
+        ! For each kpoint, calculate Amn matrix, wannier function, and Hk at k
+        do ikpt = 1, self%nkpt
+            do iband = 1, self%nband
+                psi_dagger(:, iband) = psi_dagger(:, iband)*self%weight(iband, self%anchor_ikpt)
+            end do
+
+            !Amnk (nband, nwann, nkpt)
+            call self%get_Amnk(psi_dagger, self%cols, self%Amnk(:, :, ikpt))
+
+            self%psi_wann_k(:, :, ikpt) = matmul(self%psi(:, :, ikpt), self%Amnk(:, :, ikpt))
+
+            call Amn_to_H_from_evals(self%Amnk(:, :, ikpt), self%evals(:, ikpt), &
+                    & self%nbasis, self%nwann, self%nband, self%Hwannk(:, :, ikpt))
+        end do
+
+        ! Fourier transform of wannier function to real space
+        !call self%get_WannR(Rgrid, self%psi_wann_k)
+        !call self%get_HwannR(Rgrid, self%Hwannk)
+    end subroutine run_all
+
+    !subroutine remove_phase(self, psip)
+    !    class(scdmk_t), intent(inout) :: self
+    !    complex(dp), intent(in) :: psip(:, :, :) ! (ibasis, iband, ikpt)
+    !    !complex(dp), intent(out) :: psi(:,:,:) ! (ibasis, iband, ikpt)
+    !    integer :: ikpt, ibasis
+    !    complex(dp) :: phase
+    !    do ikpt = 1, self%nkpt
+    !        do ibasis = 1, self%nbasis
+    !            phase = exp(-tpi_im*dot_product(self%kpts(:, ikpt), self%positions_red(:, ibasis)))
+    !            self%psi(ibasis, :, ikpt) = psip(ibasis, :, ikpt)*phase
+    !        end do
+    !    end do
+    !end subroutine remove_phase
+
+    !===============================================================
+    ! Find one kpoint in a list of kpoints.
+    !> @
+    !===============================================================
+    function find_kpoint(self, kpoint) result(ik)
+        class(scdmk_t), intent(inout) :: self
+        real(dp), intent(in) :: kpoint(:)
+        integer :: ik
+        integer :: i
+        real(dp) :: a(size(self%kpts, 2))
+        ! should transfer back to 1st BZ?
+        do i = 1, size(self%kpts, 2)
+            a(i) = sum((self%kpts(:, i) - kpoint)**2)
+        end do
+        ik = minloc(a, dim=1)
+        if (a(ik) > 0.001) then
+            ABI_ERROR("Error in finding kpoint from kpoint list. ")
+        end if
+    end function find_kpoint
+
+    !===============================================================
+    ! Calculate the weight function for each mode described by iband and ikpt
+    ! The
+    !> @
+    !===============================================================
+    subroutine get_weight(self, ikpt, type, mu, sigma, weight, project_to_anchor)
+        class(scdmk_t), intent(inout) :: self
+        integer, intent(in) :: ikpt, type
+        real(dp), intent(in) :: mu, sigma
+        real(dp), intent(inout) :: weight(self%nband)
+        logical, optional, intent(in) :: project_to_anchor
+
+        integer :: iband, ianchor
+        select case (type)
+        case (1)
+            weight(:) = 1.0
+        case (2)
+            do iband = 1, self%nband
+                weight(iband) = fermi(self%evals(iband, ikpt), mu, sigma)
+            end do
+        case (3)
+            do iband = 1, self%nband
+                weight(iband) = gaussian(self%evals(iband, ikpt), mu, sigma)
+            end do
+        case default
+            ABI_ERROR("The disentanglement function type can only be 1:unity, 2: fermi, 3: gaussian")
+        end select
+
+        ! weight_mk *=\sum_anchor< psi_anchor | psi mk>
+        if (present(project_to_anchor)) then
+        if (size(self%anchor_ibands) /= 0 .and. project_to_anchor) then
+            do iband = 1, self%nband
+                do ianchor = 1, size(self%anchor_ibands)
+                    weight(iband) = weight(iband)*real(dot_product(  &
+                         & conjg(self%psi(:, ianchor, self%anchor_ikpt)), &
+                         & self%psi(:, iband, ikpt)))
+                end do
+            end do
+        end if
+    end if
+    end subroutine get_weight
+
+    subroutine get_columns(self, psi_dagger, cols)
+        class(scdmk_t), intent(inout) :: self
+        complex(dp), intent(in) :: psi_dagger(:, :)
+        integer :: piv(size(psi_dagger, 2))
+        integer, intent(inout) :: cols(self%nwann)
+
+        call complex_QRCP_piv_only(psi_dagger, piv)
+        cols = piv(:self%nwann)
+    end subroutine get_columns
+
+    subroutine get_Amnk(self, psi_dagger, cols, Amnk)
+        class(scdmk_t), intent(inout) :: self
+        complex(dp), intent(in) :: psi_dagger(self%nband, self%nbasis)
+        integer :: cols(:)
+        complex(dp), intent(inout) :: Amnk(self%nbasis, self%nwann)
+
+        complex(dp) :: U(self%nband, self%nband), VT(self%nwann, self%nwann)
+        real(dp) :: S(self%nband)
+        ! orthogonalize selected columns
+        call complex_svd(psi_dagger(:, cols), U, S, VT)
+        Amnk(:, :) = matmul(U, conjg(transpose(VT)))
+    end subroutine get_Amnk
+
+    subroutine get_WannR(self, Rgrid, Wann)
+        class(scdmk_t), intent(inout) :: self
+        integer, intent(in) :: Rgrid(:, :)
+        real(dp) :: Wann(self%nbasis, self%nwann, size(Rgrid, 2))
+        complex(dp) :: Wann_complex(self%nbasis, self%nwann, size(Rgrid, 2))
+        integer :: ik, iR, nR
+        nR = size(Rgrid, 2)
+        Wann_complex(:, :, :) = cmplx(0.0, 0.0, dp)
+        do ik = 1, self%nkpt
+            do iR = 1, nR
+                Wann_complex(:, :, iR) = self%psi_wann_k(:, :, ik)*exp(tpi_Im*dot_product(self%kpts(:, ik), Rgrid(:, iR)))
+            end do
+        end do
+        Wann = real(real(Wann_complex))
+    end subroutine get_WannR
+
+    subroutine get_HwannR(self, Rgrid, HR)
+        class(scdmk_t), intent(inout) :: self
+        integer, intent(in) :: Rgrid(:, :)
+        complex(dp), intent(out) :: HR(self%nwann, self%nwann, size(Rgrid, 2))
+        !-- H(R)= \sum_k H(k) * exp(i2pi k.R)
+        integer :: ik, iR, nR
+        nR = size(Rgrid, 2)
+        HR(:, :, :) = cmplx(0.0, 0.0, dp)
+        do ik = 1, self%nkpt
+            do iR = 1, nR
+                HR(:, :, iR) = self%Hwannk(:, :, ik)*exp(tpi_Im*dot_product(self%kpts(:, ik), Rgrid(:, iR)))
+            end do
+        end do
+    end subroutine get_HwannR
+
+    subroutine Amn_to_H_from_evals(Amn, evals, nbasis, nwann, nband, Hwann)
+        implicit none
+        complex(dp), intent(in) :: Amn(nband, nwann)
+        real(dp), intent(in) :: evals(nband)
+        integer, intent(in) :: nbasis, nwann, nband
+        complex(dp), intent(inout) :: Hwann(nwann, nwann)
+
+        integer :: i
+        complex(dp) :: tmp(nwann, nband)
+
+        ! A\dagger E
+        do i = 1, nband
+            tmp(:, i) = conjg(Amn(i, :))*evals(i)
+        end do
+        ! Hwann=A\dagger @ E @ A
+        Hwann = matmul(tmp, Amn)
+    end subroutine Amn_to_H_from_evals
+
+    subroutine Amn_to_H(Amn, psi, H0, nbasis, nwann, nband, Hwann)
+        ! Hwann = psi\dagger A
+        complex(dp), intent(in) :: Amn(:, :), psi(:, :), H0(:, :)
+        complex(dp), intent(inout) :: Hwann(:, :)
+        integer, intent(in) :: nbasis, nwann, nband
+        complex(dp) :: tmp(nbasis, nwann)
+        !Hwann = A_dagger@psi_dagger@H0@psi@A
+        tmp(:, :) = matmul(psi, Amn)
+        Hwann = matmul(matmul(transpose(conjg(tmp)), H0), tmp)
+    end subroutine Amn_to_H
+
+    subroutine write_Amnk(self, fname)
+        ! write to Amnk file
+        class(scdmk_t), intent(inout) :: self
+        character(len=*), intent(in) :: fname
+        integer :: iwann, iband, ikpt, locibnd
+        integer :: iun_amn
+
+        iun_amn = 101
+        OPEN (unit=iun_amn, file=trim(fname)//".amn", form='formatted')
+
+        !IF (wan_mode=='standalone') THEN
+        !   iun_amn = find_free_unit()
+        !   IF (ionode) OPEN (unit=iun_amn, file=trim(seedname)//".amn",form='formatted')
+        !ENDIF
+
+        !WRITE(stdout,'(a,i8)') '  AMN: iknum = ',iknum
+        !
+        !IF (wan_mode=='standalone') THEN
+        !   CALL date_and_tim( cdate, ctime )
+        !   header='Created on '//cdate//' at '//ctime//' with SCDM '
+        !   IF (ionode) THEN
+        !      WRITE (iun_amn,*) header
+        !      WRITE (iun_amn,'(3i8,xxx,2f10.6)') numbands,  iknum, n_wannier, scdm_mu, scdm_sigma
+        !   ENDIF
+        !ENDIF
+
+        do ikpt = 1, self%nkpt
+            do iwann = 1, self%nwann
+                locibnd = 0
+                do iband = 1, self%nband
+                    !IF (excluded_band(iband)) CYCLE
+                    locibnd = locibnd + 1
+                    WRITE (iun_amn, '(3i5,2f18.12)') locibnd, iwann, ikpt, &
+                         & REAL(self%Amnk(locibnd, iwann, ikpt)), &
+                         & AIMAG(self%Amnk(locibnd, iwann, ikpt))
+                end do
+            end do
+        end do
+
+        close (iun_amn)
+    end subroutine write_Amnk
+
+    subroutine write_Hwann(self, HR, Rgrid, fname)
+        class(scdmk_t), intent(inout) :: self
+        complex(dp), intent(in) :: HR(:, :, :)
+        integer, intent(in) :: Rgrid(:, :)
+        character(len=*), intent(in) :: fname
+        integer :: iR, ifile, iwann1, iwann2
+        ifile = 103
+        OPEN (unit=ifile, file=trim(fname)//".amn", form='formatted')
+        do iR = 1, size(Rgrid, 2)
+            WRITE (ifile, '(3i5)') Rgrid(:, iR)
+            do iwann1 = 1, self%nwann
+                do iwann2 = 1, self%nwann
+                    WRITE (ifile, '(f18.12)') HR(iwann1, iwann2, iR)
+                end do
+            end do
+        end do
+        close (ifile)
+    end subroutine write_Hwann
 
 end module m_scdm
 

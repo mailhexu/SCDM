@@ -9,7 +9,7 @@
 #include "abi_common.h"
 
 module m_lwf
-  use m_scdm, only: scdmk
+  use m_scdm, only: scdmk_t
   use defs_basis, only: dp
   implicit none
 
@@ -28,7 +28,7 @@ module m_lwf
      complex(dp), allocatable :: ifc(:,:,:)
      real(dp), allocatable :: kpts(:,:)
      integer :: nkpts
-     type(scdmk) :: myscdmk
+     type(scdmk_t) :: myscdmk
    contains
      procedure :: initialize
      procedure :: finalize
