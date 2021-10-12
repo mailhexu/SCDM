@@ -113,11 +113,11 @@ contains
 
   subroutine test_kpoints()
     type(kpoints) :: ks
-    integer :: kmesh(3)=[4,3,3], i
+    integer :: kmesh(3)=[3,3,3], i
 
     integer, allocatable :: Rlist(:,:)
     call build_Rgrid(kmesh, Rlist)
-    do i = 1, 36
+    do i = 1, 27 
        print *, Rlist(:, i)
     end do
 
