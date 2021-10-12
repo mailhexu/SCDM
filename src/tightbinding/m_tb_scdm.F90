@@ -44,6 +44,7 @@ contains
         type(scdmk_t) :: scdmk
 
         integer :: kmesh(3), nspin
+        integer, allocatable :: Rlist(:,:)
         real(dp) :: ne, beta
         integer :: ncell, i
         character(fnlen) :: fname
@@ -64,7 +65,8 @@ contains
         call ham%solve_all(kpts%kpts, evals, evecs)
         print *, "Initialize scdmk for tb."
         call scdmk%initialize(evals=evals, psi=evecs, &
-            &kpts=kpts%kpts, kweights=kpts%kweights, &
+            & kpts=kpts%kpts, kweights=kpts%kweights, &
+            & Rlist= Rlist, &
         &  nwann=5,  &
         & disentangle_func_type=3, mu=6.0, sigma=3.5, &
         & exclude_bands=exclude_bands )

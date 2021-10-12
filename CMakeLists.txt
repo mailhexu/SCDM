@@ -7,12 +7,12 @@ list(INSERT CMAKE_MODULE_PATH 0 "${cmake_dir}")
 project(scdm)
 
 
-#find_package(MPI REQUIRED)
-#include_directories(${MPI_INCLUDE_PATH})
+find_package(MPI REQUIRED)
+include_directories(${MPI_INCLUDE_PATH})
 
-#if(NOT MPI_Fortran_FOUND)
-#    message(FATAL_ERROR "Could not find Fortran MPI.  Please set MPI_Fortran_COMPILER to point to the mpifort wrapper.")
-#endif()
+if(NOT MPI_Fortran_FOUND)
+    message(FATAL_ERROR "Could not find Fortran MPI.  Please set MPI_Fortran_COMPILER to point to the mpifort wrapper.")
+endif()
 
 
 find_package(BLAS)
@@ -27,11 +27,11 @@ find_package (NetCDF REQUIRED)
 include_directories(${NETCDF_INCLUDES})
 
 
-#include_directories(${MPI_Fortran_INCLUDE_PATH})
-#add_compile_options(${MPI_Fortran_COMPILE_FLAGS})
+include_directories(${MPI_Fortran_INCLUDE_PATH})
+add_compile_options(${MPI_Fortran_COMPILE_FLAGS})
 
-#add_definitions(${MPI_Fortran_COMPILE_FLAGS})
-#link_directories(${MPI_Fortran_LIBRARIES})
+add_definitions(${MPI_Fortran_COMPILE_FLAGS})
+link_directories(${MPI_Fortran_LIBRARIES})
 
 set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/mods)
 
@@ -60,8 +60,8 @@ add_library(scdm SHARED
 target_include_directories(scdm PUBLIC
     "src/common"
     )
-#target_link_libraries(scdm ${lapackblas_libraries} ${MPI_Fortran_LIBRARIES} ${NETCDF_LIBRARIES_F90})
-target_link_libraries(scdm ${lapackblas_libraries}  ${NETCDF_LIBRARIES_F90})
+target_link_libraries(scdm ${lapackblas_libraries} ${MPI_Fortran_LIBRARIES} ${NETCDF_LIBRARIES_F90})
+#target_link_libraries(scdm ${lapackblas_libraries}  ${NETCDF_LIBRARIES_F90})
 
 
 target_link_libraries(scdm )
