@@ -2,6 +2,9 @@
 # Created by https://www.gitignore.io/api/cmake,macos,emacs,python,fortran
 # Edit at https://www.gitignore.io/?templates=cmake,macos,emacs,python,fortran
 
+unittest
+libscdm.so
+
 
 #Fortran test directory
 build_src/
