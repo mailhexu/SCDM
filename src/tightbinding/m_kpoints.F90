@@ -24,8 +24,9 @@ module m_kpoints
 contains
 
   ! -4/2-> -1, 4/2->2. Then (-1,0,1,2)
-  function div2(x) result(y)
-      integer :: x, y
+  pure function div2(x) result(y)
+      integer, intent(in) :: x
+      integer :: y
       if(mod(x, 2)==0 .and. x<0) then 
           y=x/2+1
       else
@@ -45,7 +46,7 @@ contains
     ! Note that C/Fortran integer division is "truncate towards 0" division,
     ! whereas Python one is "floor" division.
     ! For C/Fortran, the behavior for even and odd numbers is 
-    !  not consistent and need special care.
+    !  not consistent and need special treatment in div2.
     do i3 = div2(-kmesh(3)), div2(kmesh(3))
       do i2 = div2(-kmesh(2)), div2(kmesh(2))
         do i1 = div2(-kmesh(1)), div2(kmesh(1))

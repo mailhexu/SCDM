@@ -4,7 +4,7 @@
 module m_tb_scdm
     use defs_basis, only: dp, fnlen
     use m_tight_binding, only: TBHam
-    use m_kpoints, only: kpoints
+    use m_kpoints, only: kpoints, build_Rgrid
     use m_test_utils, only: assertion
     use m_scdm, only: scdmk_t
     implicit none
@@ -48,7 +48,7 @@ contains
         real(dp) :: ne, beta
         integer :: ncell, i
         character(fnlen) :: fname
-        integer, parameter :: nbasis = 14, nkpt = 8*8*8
+        integer, parameter :: nbasis = 14, nkpt = 7*7*7
         real(dp), allocatable :: evals(:, :)  ! nbasis, nkpt
         complex(dp), allocatable :: evecs(:, :, :) ! nbasis, nband, nkpt
         integer :: exclude_bands(0)
@@ -58,7 +58,7 @@ contains
         call ham%read_from_netcdf(fname)
         kmesh = [7, 7, 7]
         call kpts%monkhorst_pack(kmesh)
-
+        call build_Rgrid(kmesh, Rlist)
 
         ABI_MALLOC(evals, (nbasis, nkpt))
         ABI_MALLOC(evecs, (nbasis, nbasis, nkpt))
@@ -74,10 +74,9 @@ contains
         print *, "E{gamma}", evals(:,1)
         print *, "Setting anchor point"
         call scdmk%set_anchor(anchor_kpt=[0.0_dp, 0.0_dp, 0.0_dp], anchor_ibands=[1,2,3, 4, 5])
-
         call scdmk%run_all()
 
-
+        ABI_SFREE(Rlist)
         ABI_FREE(evals)
         ABI_FREE(evecs)
     end subroutine test_tb_scdm

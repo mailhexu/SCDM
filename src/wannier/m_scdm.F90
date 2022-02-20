@@ -33,12 +33,15 @@ module m_scdm
         integer, allocatable :: anchor_ibands(:)
         integer :: nwann, nkpt, nband, nbasis, nkdim
         integer :: dim ! dimension of position
-        integer :: ik_anchor
         integer :: disentangle_func_type
         real(dp) :: mu, sigma
         complex(dp), allocatable :: Amnk(:, :, :) !(nband, nwann, nkpt)
         complex(dp), allocatable :: Hwannk(:, :, :) !(nwann, nwann, nkpt)
+
         complex(dp), allocatable :: psi_wann_k(:, :, :)  !(nbasis, nwann, nkpt)
+
+        complex(dp), allocatable :: HwannR(:, :, :) !(nwann, nwann, nR)
+        complex(dp), allocatable :: wannR(:,:,:) !(nbasis, nwann, nR)
         integer, allocatable :: exclude_bands(:)
         logical :: project_to_anchor = .False.
     contains
@@ -54,10 +57,10 @@ module m_scdm
         procedure :: get_weight
         procedure :: set_anchor
         !procedure :: select_column
-        procedure :: get_HwannR
-        procedure :: get_WannR
-        procedure :: write_Amnk
-        procedure :: write_Hwann
+        procedure :: get_wannR_and_HwannR
+        procedure :: write_Amnk_w90
+        procedure :: write_Hwann_w90
+        procedure :: write_wann_netcdf
     end type scdmk_t
 
 contains
@@ -161,6 +164,8 @@ contains
             ABI_SFREE(self%Amnk)
             ABI_SFREE(self%psi_wann_k)
             ABI_SFREE(self%Hwannk)
+            ABI_SFREE(self%wannR)
+            ABI_SFREE(self%HwannR)
         end subroutine finalize
 
         ! automatically set the anchor points using the weight functions.
@@ -242,11 +247,9 @@ contains
                 call esolver%run(evals, evecs)
 
             end do
-
-
             ! Fourier transform of wannier function to real space
-            call self%get_WannR(self%Rlist, self%psi_wann_k)
-            call self%get_HwannR(self%Rlist, self%Hwannk)
+            call self%get_wannR_and_HwannR(self%Rlist)
+            call self%write_wann_netcdf("wann.nc")
         end subroutine run_all
 
         !subroutine remove_phase(self, psip)
@@ -348,34 +351,26 @@ contains
             Amnk(:, :) = matmul(U, VT)
           end subroutine get_Amnk
 
-        subroutine get_WannR(self, Rlist, WannR)
-            class(scdmk_t), intent(inout) :: self
-            integer, intent(in) :: Rlist(:, :)
-            complex(dp) :: WannR(self%nbasis, self%nwann, size(Rlist, 2))
-            integer :: ik, iR, nR
-            nR = size(Rlist, 2)
-            WannR(:, :, :) = cmplx(0.0, 0.0, dp)
-            do ik = 1, self%nkpt
-                do iR = 1, nR
-                    WannR(:, :, iR) = self%psi_wann_k(:, :, ik)*exp(tpi_Im*dot_product(self%kpts(:, ik), Rlist(:, iR)))
-                end do
-            end do
-    end subroutine get_WannR
-
-    subroutine get_HwannR(self, Rlist, HR)
+    subroutine get_wannR_and_HwannR(self, Rlist)
         class(scdmk_t), intent(inout) :: self
         integer, intent(in) :: Rlist(:, :)
-        complex(dp), intent(out) :: HR(self%nwann, self%nwann, size(Rlist, 2))
+        !complex(dp), intent(out) :: HR(self%nwann, self%nwann, size(Rlist, 2))
         !-- H(R)= \sum_k H(k) * exp(i2pi k.R)
         integer :: ik, iR, nR
+        complex(dp) :: factor
         nR = size(Rlist, 2)
-        HR(:, :, :) = cmplx(0.0, 0.0, dp)
+        ABI_MALLOC(self%HwannR, (self%nwann, self%nwann,nR))
+        ABI_MALLOC(self%WannR, (self%nbasis, self%nwann, nR))
+
+        self%HwannR(:, :, :) = cmplx(0.0, 0.0, dp)
         do ik = 1, self%nkpt
             do iR = 1, nR
-                HR(:, :, iR) = self%Hwannk(:, :, ik)*exp(tpi_Im*dot_product(self%kpts(:, ik), Rlist(:, iR)))
+               factor=exp(tpi_Im*dot_product(self%kpts(:, ik), Rlist(:, iR))) * self%kweights(ik)
+               self%HwannR(:, :, iR) = self%HwannR(:,:, iR) + self%Hwannk(:, :, ik)*factor
+               self%wannR(:, :, iR) = self%wannR(:,:, iR) + self%psi_wann_k(:, :, ik)*factor
             end do
         end do
-    end subroutine get_HwannR
+      end subroutine get_wannR_and_HwannR
 
     subroutine Amn_to_H_from_evals(Amn, evals, nbasis, nwann, nband, Hwann)
         implicit none
@@ -406,7 +401,7 @@ contains
         Hwann = matmul(matmul(transpose(conjg(tmp)), H0), tmp)
     end subroutine Amn_to_H
 
-    subroutine write_Amnk(self, fname)
+    subroutine write_Amnk_w90(self, fname)
         ! write to Amnk file
         class(scdmk_t), intent(inout) :: self
         character(len=*), intent(in) :: fname
@@ -446,16 +441,16 @@ contains
         end do
 
         close (iun_amn)
-    end subroutine write_Amnk
+    end subroutine write_Amnk_w90
 
-    subroutine write_Hwann(self, HR, Rlist, fname)
+    subroutine write_Hwann_w90(self, HR, Rlist, fname)
         class(scdmk_t), intent(inout) :: self
         complex(dp), intent(in) :: HR(:, :, :)
         integer, intent(in) :: Rlist(:, :)
         character(len=*), intent(in) :: fname
         integer :: iR, ifile, iwann1, iwann2
         ifile = 103
-        OPEN (unit=ifile, file=trim(fname)//".amn", form='formatted')
+        OPEN (unit=ifile, file=trim(fname)//".hr", form='formatted')
         do iR = 1, size(Rlist, 2)
             WRITE (ifile, '(3i5)') Rlist(:, iR)
             do iwann1 = 1, self%nwann
@@ -465,7 +460,12 @@ contains
             end do
         end do
         close (ifile)
-    end subroutine write_Hwann
+    end subroutine write_Hwann_w90
+
+    subroutine write_wann_netcdf(self, fname)
+      class(scdmk_t), intent(inout) :: self
+      character(len=*), intent(in) :: fname
+    end subroutine write_wann_netcdf
 
 end module m_scdm
 

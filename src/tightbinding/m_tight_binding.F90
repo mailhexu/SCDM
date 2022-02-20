@@ -103,6 +103,7 @@ contains
     end do
   end subroutine set_Rlist
 
+
   subroutine set_Rlist_and_HamR(self, Rlist, HamR)
     class(TBHam),intent(inout) :: self
     integer, intent(in) :: Rlist(:,:)
