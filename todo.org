@@ -1,0 +1,93 @@
+* Wannier functions
+** TODO Writting LWF methodology paper [3/6]
+*** TODO Introduction
+*** DONE SCDM method
+*** DONE projected WF method
+*** DONE Lattice Wannier function
+*** TODO Dipole-dipole for phonon
+*** TODO LWF dynamics
+
+** TODO Python module (band downfolder) [5/8]
+**** TODO Alogrithm
+***** DONE projected WF
+***** DONE SCDM-k
+***** DONE Hamiltonian and WannR
+**** DONE phonopy interface
+**** DONE Siesta interface
+**** DONE Wannier90 interface
+**** DONE Anaddb interface
+**** TODO Documentation (Updates)
+      - https://banddownfolder.readthedocs.io/en/latest/index.html
+**** TODO Abinit? 
+***** TODO read Abinit wavefunction (without symmetry) 
+***** TODO transform to grid basis
+***** TODO Abinit interface
+
+**** DONE Post-processing [2/2]
+***** DONE Plot original and WF band structure
+***** DONE plot LWF with arrows (vesta?)
+
+
+
+** TODO Fortran module [5/7]
+*** DONE build system CMAKE
+*** DONE SCDM algorithm
+*** DONE PWF algorithm 
+*** DONE output AMN and MMN matrix in W90 format [2/2]
+**** DONE AMN matrix
+**** DONE MMN matrix
+*** TODO Parallelization 
+*** TODO dipole-dipole
+*** DONE testing [4/4]
+**** DONE test SCDM tight-binding
+**** DONE test SCDM phonon
+**** DONE test Wannier90 compatible output
+**** DONE test netcdf output
+
+
+
+** TODO Anaddb-LWF [2/4]
+*** DONE add anaddb input varibles
+    - lwf_nwann
+    - lwf_wann_type
+    - lwf_anchor_qpoint
+    - lwf_auto_select_anchor
+    - lwf_occupation_function
+    - lwf_func_arg1
+    - lwf_func_arg2
+*** DONE add Fortran Wannier module
+*** TODO Anaddb-LWF [/]
+**** DONE Prepare Anaddb eigen vectors and eigenvalues
+**** TODO prepare analytical/BEC
+**** TODO Run LWF
+*** TODO Autotest [0/2]
+**** TODO SCDM-k
+**** TODO Projected WF
+*** TODO Documentation
+
+** TODO Abinit-Wannier
+*** TODO Fix parallel version of Wannier 
+*** TODO Basis transformation: planewave to grid
+*** TODO scdm 
+**** TODO input variables
+**** TODO 
+*** TODO documentation
+*** TODO autotests
+
+** DONE Multibinit LWF dynamics [2/2]
+*** DONE LWF model data structure [3/3]
+**** DONE primtive cell potential
+**** DONE anharmonic potential
+***** DONE sparse matrix format
+**** DONE supercell potential
+**** DONE general movers
+**** DONE 
+**** TODO LWF dipole-dipole interaction
+*** DONE Dynamics [0/1]
+**** DONE Monte Carlo (broken and perhaps to be deprecated)
+**** DONE NVT: Berendsen
+**** TODO NVE: Verlet-velocity
+**** TODO Others?
+*** DONE Post-processing [/]
+**** DONE 
+

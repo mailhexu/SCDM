@@ -37,7 +37,7 @@ module m_lwf
      procedure :: get_eigen
      procedure :: build_lwf
   end type lwf
-
+  
 contains
   subroutine initialize(self)
     class(lwf),intent(inout) :: self

@@ -9,6 +9,7 @@ module m_scdm
     use defs_basis, only: dp, PI
     use m_math, only: complex_QRCP_piv_only, complex_svd, tpi_im, gaussian, fermi
     use m_mathfuncs, only: eigensolver
+    use m_wann_netcdf, only: IOWannNC
     implicit none
     public :: scdmk_t
     public :: Amn_to_H
@@ -22,7 +23,6 @@ module m_scdm
 
         real(dp), pointer :: evals(:, :) => null()   !(iband, ikpt)
         complex(dp), pointer :: psi(:, :, :) => null() ! (ibasis, iband, ikpt)
-
         real(dp), allocatable :: kpts(:, :) !(idim, ikpt)
         integer, allocatable :: Rlist(:,:) !(idim, iRpt)
         real(dp), allocatable :: kweights(:) !(ikpt)
@@ -33,6 +33,7 @@ module m_scdm
         integer, allocatable :: anchor_ibands(:)
         integer :: nwann, nkpt, nband, nbasis, nkdim
         integer :: dim ! dimension of position
+        integer :: nR
         integer :: disentangle_func_type
         real(dp) :: mu, sigma
         complex(dp), allocatable :: Amnk(:, :, :) !(nband, nwann, nkpt)
@@ -116,8 +117,8 @@ contains
         ABI_MALLOC(self%kweights, (self%nkpt))
         self%kweights = kweights
 
-        nR=size(Rlist, 2)
-            ABI_MALLOC(self%Rlist, (self%nkdim, nR))
+        self%nR=size(Rlist, 2)
+            ABI_MALLOC(self%Rlist, (self%nkdim, self%nR))
             self%Rlist = Rlist
 
             ABI_MALLOC(self%weight, (self%nband, self%nkpt))
@@ -465,6 +466,11 @@ contains
     subroutine write_wann_netcdf(self, fname)
       class(scdmk_t), intent(inout) :: self
       character(len=*), intent(in) :: fname
+      type(IOWannNC) :: myfile
+
+      call myfile%write_wann(filename=fname, nR=self%nR, ndim=self%nkdim, &
+           & nwann=self%nwann, nbasis=self%nbasis, Rlist=self%Rlist, &
+           & wannR=self%wannR, HwannR=self%HwannR)
     end subroutine write_wann_netcdf
 
 end module m_scdm
