@@ -4,7 +4,7 @@ module utests
 
 contains
     subroutine test_complex_svd()
-        use m_math, only: real_svd, complex_svd
+        use m_scdm_math, only: real_svd, complex_svd
         integer, parameter :: M = 6, N = 5, LWMAX = 1000
         complex(8):: A(M, N), U(M, M), VT(N, N)
         real(8) :: S(N)
@@ -22,7 +22,7 @@ contains
     end subroutine test_complex_svd
 
     subroutine test_QRPiv()
-        use m_math, only: complex_QRCP_piv_only
+        use m_scdm_math, only: complex_QRCP_piv_only
         integer, parameter :: M = 6, N = 5
         complex(8):: A(5, 6)
         complex(8):: AT(6, 5)

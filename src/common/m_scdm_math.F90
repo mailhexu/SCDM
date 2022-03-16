@@ -1,16 +1,25 @@
 #include "abi_common.h"
 
-module m_math
+module m_scdm_math
   use defs_basis
   implicit none
   real(dp), parameter, public :: tpi=2*PI
   complex(dp), parameter, public :: tpi_im = cmplx(0.0_dp, tpi, kind=dp)
+  type eigensolver
+     integer :: ndim=-1, lwork=0
+     complex(dp), allocatable  :: work(:)
+     real(dp), allocatable :: rwork(:)
+   contains
+     procedure :: run => eigensolver_run
+     procedure :: finalize => eigensolver_finalize
+  end type eigensolver
 
   public :: complex_QRCP_piv_only
   public :: real_svd
   public :: complex_svd
   public :: gaussian
   public :: fermi
+  public :: insertion_sort_double
   private
 
 contains
@@ -149,4 +158,68 @@ contains
     y=0.5 * erfc((x - mu) / sigma)
   end function fermi
 
-end module m_math
+  subroutine eigensolver_run(self, evals, evecs)
+    class(eigensolver), intent(inout) :: self
+    real(dp), intent(inout) :: evals(:)
+    complex(dp), intent(inout) :: evecs(:,:)
+    integer ::  info
+    external ZHEEV
+    if (self%ndim == -1) then
+       self%ndim = size(evecs, 1)
+       self%lwork = -1
+       ABI_MALLOC(self%work , (1))
+       ABI_MALLOC(self%rwork, (3*size(evecs,1)-2))
+       call ZHEEV('V', 'U', self%ndim, evecs, self%ndim, evals, self%work, self%lwork, self%rwork, info)
+       self%lwork= INT(self%work(1))
+       ABI_SFREE(self%work)
+       ABI_MALLOC(self%work , (self%lwork))
+    else if (self%ndim /= size(evecs, 1)) then
+       print *, "The size of the evecs is not the same as previous one."
+    end if
+    call ZHEEV('V', 'U', self%ndim, evecs, self%ndim, evals, self%work, self%lwork, self%rwork, info)
+  end subroutine eigensolver_run
+
+  subroutine eigensolver_finalize(self)
+    class(eigensolver), intent(inout) :: self
+    self%ndim=-1
+    self%lwork=-1
+    ABI_SFREE(self%work)
+    ABI_SFREE(self%rwork)
+  end subroutine eigensolver_finalize
+
+  !----------------------------------------------------------------------
+  !> @brief insertion_sort_int: sort a array using insertion sort algorithm
+  !>  it is a memory safe method but is generally slow.
+  !> @param[inout]  a: the array to be sorted. and will output inplace
+  !> @param[inout] order (optional) the sorted index, it can be used to sort
+  !>  other arrays so that the order in consistent.
+  !----------------------------------------------------------------------
+  subroutine insertion_sort_double(a, order)
+    real(dp), intent(inout) :: a(:)
+    integer, optional, intent(inout):: order(size(a))
+    integer :: n,i,j
+    real(dp) ::v
+    n=size(a)
+    if (present(order)) then
+       do i = 1,n
+          order(i)=i
+       end do
+    end if
+    do i = 2,n
+       v=a(i)
+       j=i-1
+       do while(j>=1 )
+          if (a(j)<=v) exit
+          a(j+1)=a(j)
+          if(present(order)) order(j+1)=order(j)
+          j=j-1
+       end do
+       a(j+1)=v
+       if(present(order)) order(j+1)=i
+    end do
+  
+  end subroutine insertion_sort_double
+  
+
+
+end module m_scdm_math

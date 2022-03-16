@@ -1,5 +1,6 @@
 #include "abi_common.h"
 
+
 !===============================================================
 ! SCDM-k
 !> @description: Select Column Density matrix method for
@@ -7,7 +8,8 @@
 !===============================================================
 module m_scdm
     use defs_basis, only: dp, PI
-    use m_math, only: complex_QRCP_piv_only, complex_svd, tpi_im, gaussian, fermi
+    use m_scdm_math, only: complex_QRCP_piv_only, complex_svd, tpi_im, &
+        & gaussian, fermi, insertion_sort_double
     use m_mathfuncs, only: eigensolver
     use m_wann_netcdf, only: IOWannNC
     implicit none
@@ -15,12 +17,12 @@ module m_scdm
     public :: Amn_to_H
     private
 
+
     !===============================================================
     ! scdmk type:
     !> @ description: the class for scdmk method.
     !===============================================================
     type::  scdmk_t
-
         real(dp), pointer :: evals(:, :) => null()   !(iband, ikpt)
         complex(dp), pointer :: psi(:, :, :) => null() ! (ibasis, iband, ikpt)
         real(dp), allocatable :: kpts(:, :) !(idim, ikpt)
@@ -171,13 +173,28 @@ contains
 
         ! automatically set the anchor points using the weight functions.
         ! The bands with the largest weights are selected as the anchor points. 
-        subroutine auto_find_anchors(self)
+        subroutine auto_find_anchors(self, anchor_kpt)
+            ! TODO: currently using the first N. 
             class(scdmk_t), intent(inout) :: self
-            integer :: i
-            do i = 1, self%nwann
-                self%anchor_ibands(i) = i
-            end do
+            real(dp), intent(in) ::  anchor_kpt(:)
+            integer :: i, ikpt
+            integer :: anchor_ibands(self%nwann)
+            real(dp) :: weights(self%nband)
+            integer :: order(self%nband), ianchors(self%nwann)
 
+
+
+            ikpt = self%find_kpoint(anchor_kpt)
+            call self%get_weight(ikpt, self%disentangle_func_type, &
+                & self%mu, self%sigma, weights, project_to_anchor=.False.)
+           call insertion_sort_double(weights, order)
+
+           do i = 1, self%nwann
+            ianchors(i)= order(self%nband-i+1)
+           end  do
+           print *, "ianchors", ianchors
+           
+            call self%set_anchor(anchor_kpt, anchor_ibands)
         end subroutine auto_find_anchors
 
         subroutine set_anchor(self, anchor_kpt, anchor_ibands)
@@ -188,7 +205,7 @@ contains
             integer, optional, intent(in) :: anchor_ibands(:)
 
             if (.not. present(anchor_ibands)) then
-                call self%auto_find_anchors()
+                call self%auto_find_anchors(anchor_kpt)
             else if (.not. size(anchor_ibands) == self%nwann) then
                 ABI_ERROR("The number of anchor points should be equal to the number of Wannier functions.")
             else
@@ -212,9 +229,10 @@ contains
             real(dp) :: evals(self%nwann)
             complex(dp) :: evecs(self%nwann, self%nwann)
             ! find anchor points, by default gamma
-            if (size(self%anchor_ibands) /= 0) then
-                self%anchor_ikpt = self%find_kpoint(self%anchor_kpt)
-            end if
+            self%anchor_ikpt = self%find_kpoint(self%anchor_kpt)
+            !if (size(self%anchor_ibands) /= 0) then
+            !
+            !end if
             ! calculate weight matrix for each kpoint
             do ikpt = 1, self%nkpt
                 call self%get_weight(ikpt, self%disentangle_func_type, self%mu, self%sigma, self%weight(:, ikpt), &
@@ -251,6 +269,7 @@ contains
             ! Fourier transform of wannier function to real space
             call self%get_wannR_and_HwannR(self%Rlist)
             call self%write_wann_netcdf("wann.nc")
+            call self%write_Amnk_w90("Amnk.dat")
         end subroutine run_all
 
         !subroutine remove_phase(self, psip)
@@ -364,6 +383,7 @@ contains
         ABI_MALLOC(self%WannR, (self%nbasis, self%nwann, nR))
 
         self%HwannR(:, :, :) = cmplx(0.0, 0.0, dp)
+        self%wannR(:, :, :) = cmplx(0.0, 0.0, dp)
         do ik = 1, self%nkpt
             do iR = 1, nR
                factor=exp(tpi_Im*dot_product(self%kpts(:, ik), Rlist(:, iR))) * self%kweights(ik)
@@ -374,7 +394,6 @@ contains
       end subroutine get_wannR_and_HwannR
 
     subroutine Amn_to_H_from_evals(Amn, evals, nbasis, nwann, nband, Hwann)
-        implicit none
         complex(dp), intent(in) :: Amn(nband, nwann)
         real(dp), intent(in) :: evals(nband)
         integer, intent(in) :: nbasis, nwann, nband
@@ -471,7 +490,11 @@ contains
       call myfile%write_wann(filename=fname, nR=self%nR, ndim=self%nkdim, &
            & nwann=self%nwann, nbasis=self%nbasis, Rlist=self%Rlist, &
            & wannR=self%wannR, HwannR=self%HwannR)
+      call myfile%write_Amnk(nkpt=self%nkpt, nband=self%nband, nwann=self%nwann, &
+           & kpoints=self%kpts, eigvals=self%evals, Amnk=self%Amnk)
+      call myfile%close_file()
     end subroutine write_wann_netcdf
+
 
 end module m_scdm
 

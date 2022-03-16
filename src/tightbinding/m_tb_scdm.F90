@@ -73,7 +73,8 @@ contains
 
         print *, "E{gamma}", evals(:,1)
         print *, "Setting anchor point"
-        call scdmk%set_anchor(anchor_kpt=[0.0_dp, 0.0_dp, 0.0_dp], anchor_ibands=[1,2,3, 4, 5])
+        !call scdmk%set_anchor(anchor_kpt=[0.0_dp, 0.0_dp, 0.0_dp], anchor_ibands=[1,2,3, 4, 5])
+        call scdmk%set_anchor(anchor_kpt=[0.0_dp, 0.0_dp, 0.0_dp]) 
         call scdmk%run_all()
 
         ABI_SFREE(Rlist)
