@@ -46,6 +46,8 @@ file(GLOB sourcefile
     "src/tightbinding/*.F90"
     "src/phonon/*.F90"
     "src/unittests/*.F90"
+    "src/siesta/*.F90"
+    "external/*.F90"
     )
 
 list(REMOVE_ITEM sourcefile

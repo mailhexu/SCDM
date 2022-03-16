@@ -58,6 +58,7 @@ contains
 
 
   ! defines outer product of two vectors.
+  ! c_ji = a_i * b_j
   function outer_product_real(a,b)  result (c)
     real(dp), intent(in) :: a(:), b(:)
     real(dp)  :: c(size(b, dim=1), size(a, dim=1))
