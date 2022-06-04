@@ -3,14 +3,14 @@
 
 module m_siesta_scdm
     use defs_basis, only: dp, fnlen
-    use m_kpoints, only: kpoints, build_Rgrid
-    use m_test_utils, only: assertion
-    use m_scdm, only: scdmk_t
+    use m_scdm_math, only:  build_Rgrid
+    !use m_test_utils, only: assertion
+    use m_wannier_builder, only: WannierBuilder_t
     implicit none
     private
 
     type :: siesta_scdm
-        type(scdmk_t) :: objscdmk
+        type(WannierBuilder_t) :: wannbuilder
     contains
         procedure :: initialize
         procedure :: finalize

@@ -1,0 +1,3 @@
+This directory contains the source files from external projects.
+
+- wfsx_read.f90: from sisl, distributed under MPL licence (see source code).

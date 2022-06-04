@@ -50,7 +50,7 @@ end module utests
 
 program utest
     use utests
-    use m_tb_scdm, only: test_tb_scdm
+    !use m_tb_scdm, only: test_tb_scdm
     use m_kpoints, only: test_kpoints
 
     print *, "testing complex QRpiv"
@@ -60,8 +60,8 @@ program utest
     print *, "testing kpoints"
     call test_kpoints()
 
-    print *, "testing tight binding"
-    call test_tb_scdm()
+    !print *, "testing tight binding"
+    !call test_tb_scdm()
 
 end program utest
 

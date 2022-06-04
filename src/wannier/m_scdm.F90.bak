@@ -19,7 +19,7 @@ module m_scdm
 
 
     !===============================================================
-    ! scdmk type:
+    ! scdmk_t type:
     !> @ description: the class for scdmk method.
     !===============================================================
     type::  scdmk_t
@@ -311,15 +311,15 @@ contains
         ! The
         !> @
         !===============================================================
-        subroutine get_weight(self, ikpt, type, mu, sigma, weight, project_to_anchor)
+        subroutine get_weight(self, ikpt, disentangle_function_type, mu, sigma, weight, project_to_anchor)
             class(scdmk_t), intent(inout) :: self
-            integer, intent(in) :: ikpt, type
+            integer, intent(in) :: ikpt, disentangle_function_type
             real(dp), intent(in) :: mu, sigma
             real(dp), intent(inout) :: weight(self%nband)
             logical, optional, intent(in) :: project_to_anchor
 
             integer :: iband, ianchor
-            select case (type)
+            select case (disentangle_function_type)
             case (1)
                 weight(:) = 1.0
             case (2)
