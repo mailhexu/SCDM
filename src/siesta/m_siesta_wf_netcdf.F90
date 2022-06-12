@@ -6,7 +6,14 @@ module m_siesta_wf_netcdf
   implicit none
   private
 
-  type, public :: siesta_wf
+  type, public:: ncfile_t
+     integer :: ncid
+   contains
+     procedure :: open_ncfile
+     procedure :: close
+  end type ncfile_t
+
+  type, public :: siesta_wf_t
      integer :: nkpt
      integer :: nband
      integer :: nbasis
@@ -22,11 +29,12 @@ module m_siesta_wf_netcdf
      real(dp), allocatable :: kweights(:)
      real(dp), allocatable :: eigenvalues(:, :)
      complex(dp), allocatable :: eigenvectors(:, :, :)
+     type(ncfile_t) :: wffile
    contains
      procedure :: read_from_netcdf
      procedure :: get_evecs_for_one_kpoint
      procedure :: finalize
-  end type siesta_wf
+  end type siesta_wf_t
 
 
 contains
@@ -50,10 +58,23 @@ contains
   end subroutine get_dim
 
 
+  subroutine open_ncfile(ncfile, fname)
+    class(ncfile_t), intent(inout) :: self
+    character(len=*), intent(in) :: fname
+    call check(nf90_open(trim(fname), NF90_NOWRITE, self%ncid), &
+         & "openning nc file"//fname)
+
+  end subroutine open_ncfile
+
+  subroutine close(ncfile)
+    class(ncfile_t), intent(inout) :: self
+    call check(nf90_close(self%ncid), "closing nc file "//fname)
+  end subroutine close
+
 
   subroutine read_from_netcdf(wf, fname, read_evecs)
     ! Note that eigenvectors are not read.
-    class(siesta_wf), intent(inout) :: wf
+    class(siesta_wf_t), intent(inout) :: wf
     character(len=*), intent(in) :: fname
     logical :: read_evecs
     real(dp), allocatable :: evecs_real(:,:,:), evecs_imag(:,:,:)
@@ -136,16 +157,16 @@ contains
 
   end subroutine read_from_netcdf
 
-  subroutine get_evecs_for_one_kpoint(wf, ncid, ik,  evecs)
-    class(siesta_wf), intent(inout) :: wf
-    integer, intent(in) :: ncid, ik 
+  subroutine get_evecs_for_one_kpoint(wf,  ik,  evecs)
+    class(siesta_wf_t), intent(inout) :: wf
+    integer, intent(in) ::  ik
     complex(dp), intent(inout) :: evecs(:,:)
-
-    integer :: var_id
+    integer :: nc_id,var_id
 
     real(dp) :: evecs_real(wf%nbasis, wf%nband)
     real(dp) :: evecs_imag(wf%nbasis, wf%nband)
 
+    nc_id = wf%wffile%ncid
     call check(nf90_inq_varid(ncid, "eigenvectors_real", var_id), &
          & "inquire eigenvectors_real id")
     call check(nf90_get_var(ncid, var_id, evecs_real, start=[1,1, ik], count=[wf%nbasis, wf%nband, 1]), &
@@ -160,7 +181,7 @@ contains
 
 
   subroutine finalize(wf)
-    class(siesta_wf), intent(inout) :: wf
+    class(siesta_wf_t), intent(inout) :: wf
     ABI_SFREE(wf%atomic_numbers)
     ABI_SFREE(wf%xred)
     ABI_SFREE(wf%kpts)
@@ -171,5 +192,3 @@ contains
 
 
 end module m_siesta_wf_netcdf
-
-

@@ -33,6 +33,14 @@ add_compile_options(${MPI_Fortran_COMPILE_FLAGS})
 add_definitions(${MPI_Fortran_COMPILE_FLAGS})
 link_directories(${MPI_Fortran_LIBRARIES})
 
+
+# libjson
+set (Json_Fortran_INLCUDE_PATH /home/hexu/.local/jsonfortran-gnu-8.3.0/lib)
+set (Json_Fortran_LIBRARY_PATH /home/hexu/.local/jsonfortran-gnu-8.3.0/lib)
+set (Json_Fortran_LIBRARIES jsonfortran)
+include_directories(${Json_Fortran_INLCUDE_PATH})
+link_directories(${Json_Fortran_LIBRARY_PATH})
+
 set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/mods)
 
 set(HEADERS
@@ -48,6 +56,7 @@ file(GLOB sourcefile
     "src/unittests/*.F90"
     "src/siesta/*.F90"
     "external/*.F90"
+	"src/json/*.F90"
     )
 
 list(REMOVE_ITEM sourcefile
@@ -62,7 +71,7 @@ add_library(scdm SHARED
 target_include_directories(scdm PUBLIC
     "src/common"
     )
-target_link_libraries(scdm ${lapackblas_libraries} ${MPI_Fortran_LIBRARIES} ${NETCDF_LIBRARIES_F90})
+target_link_libraries(scdm ${lapackblas_libraries} ${MPI_Fortran_LIBRARIES} ${NETCDF_LIBRARIES_F90} ${Json_Fortran_LIBRARIES})
 #target_link_libraries(scdm ${lapackblas_libraries}  ${NETCDF_LIBRARIES_F90})
 
 
@@ -85,6 +94,13 @@ add_executable(unittest
 
 #target_link_libraries(unittest scdm ${lapackblas_libraries} ${NETCDF_LIBRARIES_F90})
 target_link_libraries(unittest scdm)
+
+
+add_executable(sdown
+	src/main/main.F90
+	)	
+
+target_link_libraries(sdown scdm)
 
 #add_executable(testscdm
 #  src/m_math.F90

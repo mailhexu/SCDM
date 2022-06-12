@@ -48,10 +48,11 @@ module m_wannier_builder
        & gaussian, fermi, insertion_sort_double, eigensolver
   use m_wann_netcdf, only: IOWannNC
   implicit none
-  public:: WannierBuilder_t
-  public:: Amn_to_H
   private
 
+  public:: WannierBuilder_t
+  public :: WannierBuilder_witheigen_t
+  public:: Amn_to_H
 
 
   !===============================================================
@@ -551,7 +552,7 @@ contains
     !real(dp):: weights(self%nband)
     integer:: iband
     complex(dp),  pointer:: p(:, :)
- 
+
     call self%get_weight(ikpt, self%disentangle_func_type, self%mu, self%sigma, weight, &
          &project_to_anchor = self%project_to_anchor)
 
@@ -565,7 +566,7 @@ contains
     Amnk(:, :) = matmul(U, VT)
   end subroutine get_scdm_Amnk
 
-  
+
   subroutine get_projected_Amnk(self, ikpt, Amnk)
     class(WannierBuilder_t), intent(inout):: self
     integer, intent(in):: ikpt
@@ -737,7 +738,7 @@ contains
          & wannR = self%wannR, HwannR = self%HwannR, &
          & wannR_unit = wannR_unit, HwannR_unit = HwannR_unit)
     call ncfile%write_Amnk(nkpt = self%nkpt, nband = self%nband, nwann = self%nwann, &
-         & kpoints = self%kpts, eigvals = self%evals, Amnk = self%Amnk)
+         & kpoints = self%kpts, Amnk = self%Amnk)
   end subroutine write_wann_netcdf
 
   subroutine get_wannier_eigen(self, kpoint, evals, evecs)
@@ -778,7 +779,6 @@ contains
     end do
   end subroutine get_wannier_eigen_klist
 
-end module m_wannier_builder
 !============================   WannierBuilder_witheigen_t   =========================
 
 subroutine set_eigen(self,  evals, psi)
@@ -805,4 +805,5 @@ function get_psi_k_from_eigen(self, ikpt) result(psik)
 end function get_psi_k_from_eigen
 
 
+end module m_wannier_builder
 !!***
