@@ -129,7 +129,9 @@ To use sdown to build the wannier functions from the siesta output, the followin
 
   
 
-  
+### Example:
+An example of running sdown can be found in the example directory. 
+In the SrMnO3_SOC/siesta directory, there are the siesta input file and pseudopotentials. The write_wfk_nc.py file can then be used to convert the wavefunction file into netcdf format. In the build_wannier directory, the input.json file (also a python script for generating it), and the plot_wannier_band.py file can be found.
 
   
 
