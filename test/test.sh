@@ -1,1 +1,2 @@
-../build_src/sdown
+#../build_src/sdown
+../debug/sdown

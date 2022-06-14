@@ -408,11 +408,6 @@ contains
        self%psi_wann_k(:, :, ikpt) = matmul(p, self%Amnk(:, :, ikpt))
        call Amn_to_H_from_evals(self%Amnk(:, :, ikpt), self%get_evals_k(ikpt), &
              self%nwann, self%nband, self%Hwannk(:, :, ikpt))
-         !tmp = self%Hwannk(:,:,ikpt)
-         !call esolver%run(evals, tmp)
-         !call esolver%finalize()
-       !print *, "ev1:", self%get_evals_k(ikpt)
-      ! print *, "ev2:",evals
 
     end do
     ! Fourier transform of wannier function to real space

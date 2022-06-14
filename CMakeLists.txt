@@ -45,7 +45,7 @@ set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/mods)
 
 set(HEADERS
     "src/common/*.h"
-    )
+   )
 
 file(GLOB sourcefile
     "src/*.F90"

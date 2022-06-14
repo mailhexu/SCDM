@@ -6,9 +6,12 @@ unittest
 libscdm.so
 
 
+
 #Fortran test directory
 build_src/
 ref/
+test/*
+DEBUG/*
 
 ### CMake ###
 CMakeLists.txt.user

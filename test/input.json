@@ -1,6 +1,6 @@
 {
-	"method":2,
-    "disentangle_func_type": "unity",
+	"method":1,
+    "disentangle_func_type": "gauss",
     "mu": 0.1,
     "sigma": 0.5,
     "exclude_bands": [
@@ -10,5 +10,7 @@
     ],
 	"kmesh":[4,4,4],
     "nwann": 3,
-	"project_to_anchor": true
+	"project_to_anchor": true,
+	"anchor_kpt": [0,0,0],
+	"anchor_ibands":[1,2,3]
 }

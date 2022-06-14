@@ -6,7 +6,7 @@ program main
   implicit none
 
   type(siesta_wannier_builder_t) :: swann
-  call swann%read_config(fname="input.json")
-  !call swann%run()
+  call swann%load(config_fname="input.json", wfk_fname="wfk.nc")
+  call swann%run_all(ncfilename="wannier.nc", Amnkfilename="Amnk.dat")
   call swann%finalize()
 end program main
