@@ -7,6 +7,8 @@ module m_siesta_wannier_builder
   use m_wannier_builder, only: WannierBuilder_t
   use m_siesta_wf_netcdf, only: siesta_wf_t
   use m_load_json, only: wannier_parameters_t
+  use m_wann_netcdf, only: IOWannNC
+  use m_parameters, only: atomic_masses
   implicit none
   private
 
@@ -23,6 +25,7 @@ module m_siesta_wannier_builder
      procedure :: set_wfk_file
      procedure :: get_psi_k
      procedure :: get_evals_k
+     procedure :: run_all
      procedure :: finalize
   end type siesta_wannier_builder_t
 
@@ -117,6 +120,31 @@ contains
     real(dp), pointer:: ek(:)
     ek=> self%wf%eigenvalues(:, ikpt)
   end function get_evals_k
+
+
+  
+  subroutine run_all(self, ncfilename, Amnkfilename)
+    class(siesta_Wannier_Builder_t), intent(inout):: self
+    character(*), intent(in):: ncfilename
+    character(*), intent(in):: Amnkfilename
+    type(IOWannNC):: ncfile
+    real(dp) :: masses(self%wf%natom)
+    integer :: i
+    call self%construct_wannier()
+    call self%create_ncfile(ncfilename, ncfile)
+    call self%write_wann_netcdf( ncfile,   &
+         &wannR_unit='dimensionless', HwannR_unit='eV')
+    do i=1, self%wf%natom
+       masses(i) = atomic_masses(self%wf%atomic_numbers(i))
+    end do
+    print *, "writting masses"
+    call ncfile%write_atoms(natom=self%wf%natom, cell=self%wf%cell, &
+         & numbers=self%wf%atomic_numbers, masses=masses, xred=self%wf%xred)
+    call self%close_ncfile(ncfile)
+    call self%write_Amnk_w90(trim(Amnkfilename))
+  end subroutine run_all
+
+
 
  
 

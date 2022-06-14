@@ -113,7 +113,6 @@ contains
         ABI_MALLOC(wf%eigenvectors,(wf%nbasis, wf%nband, wf%nkpt))
     end if
 
-    print *, "allocated"
     ! read vars
     ! atomic_numbers
     call check(nf90_inq_varid(ncid, "atomic_numbers", var_id), &
@@ -121,20 +120,20 @@ contains
     call check(nf90_get_var(ncid, var_id, wf%atomic_numbers), &
          & "reading var atomic_numbers")
 
-    print *, "atomic_numbers", wf%atomic_numbers
+    !print *, "atomic_numbers", wf%atomic_numbers
     ! cell
     call check(nf90_inq_varid(ncid, "cell", var_id), &
          & "inquire cell id")
     call check(nf90_get_var(ncid, var_id, wf%cell), &
          & "reading var cell")
-    print *, "cell:", wf%cell
+    !print *, "cell:", wf%cell
     ! xred
     call check(nf90_inq_varid(ncid, "xred", var_id), &
          & "inquire xred id")
     call check(nf90_get_var(ncid, var_id, wf%xred), &
          & "reading var xred")
 
-    print *, "xred:", wf%xred
+    !print *, "xred:", wf%xred
 
     ! kpts
     ! kweights
@@ -142,14 +141,14 @@ contains
          & "inquire kpts id")
     call check(nf90_get_var(ncid, var_id, wf%kpts), &
          & "reading var kpts")
-    print *, "kpts:", wf%kpts
+    !print *, "kpts:", wf%kpts
 
     ! kweights
     call check(nf90_inq_varid(ncid, "kweights", var_id), &
          & "inquire kweights id")
     call check(nf90_get_var(ncid, var_id, wf%kweights), &
          & "reading var kweights")
-    print *, "kweights:", wf%kweights
+    !print *, "kweights:", wf%kweights
     ! eigenvalues
     call check(nf90_inq_varid(ncid, "eigenvalues", var_id), &
          & "inquire eigenvalues id")
@@ -173,7 +172,6 @@ contains
        ABI_SFREE(evecs_real)
        ABI_SFREE(evecs_imag)
     end if
-    !print *, "eigenvalues", wf%eigenvalues
 
   end subroutine read_from_netcdf
 
@@ -186,20 +184,16 @@ contains
     real(dp) :: evecs_imag(wf%nbasis, wf%nband)
 
     ncid = wf%wffile%ncid
-    print *, "ncid:", ncid
     call check(nf90_inq_varid(ncid, "eigenvectors_real", var_id), &
          & "inquire eigenvectors_real id")
-    print *, "var_id found", var_id
     call check(nf90_get_var(ncid, var_id, evecs_real, start=[1,1, ik], count=[wf%nbasis, wf%nband, 1]), &
          & "reading var eigenvectors_real")
-    print *, "real part read."
 
     call check(nf90_inq_varid(ncid, "eigenvectors_imag", var_id), &
          & "inquire eigenvectors_imag id")
     call check(nf90_get_var(ncid, var_id, evecs_imag, start=[1,1, ik], count=[wf%nbasis, wf%nband, 1]), &
          & "reading var eigenvectors_imag")
-    print *, "imag part read."
-    evecs(:,:) = cmplx(evecs_real, evecs_imag, kind=dp)
+    evecs(:,:) = cmplx(transpose(evecs_real), transpose(evecs_imag), kind=dp)
   end subroutine get_evecs_for_one_kpoint
 
 

@@ -219,11 +219,12 @@ module m_wann_netcdf
 
   end subroutine write_Amnk
 
-  subroutine write_atoms(self, natom, cell, numbers, masses, xred, xcart)
+  subroutine write_atoms(self, natom, cell, numbers, masses, xred)
     class(IOwannNC), intent(inout):: self
     integer, intent(in):: natom
     integer, intent(in):: numbers(:)
-    real(dp), intent(in):: cell(:,:), masses(:), xred(:, :), xcart(:,:)
+    real(dp), intent(in):: cell(:,:), xred(:, :)
+    real(dp), optional,  intent(in) :: masses(:)
 
 #if defined HAVE_NETCDF
     integer:: ncerr
@@ -253,9 +254,9 @@ module m_wann_netcdf
          & self%i_xred, NF90_DOUBLE, "atomic_xred", &
          &"ATOMic structure: Reduced positions" , "dimensionless")
 
-    call ab_define_var(self%ncid, [self%d_three, self%d_natom], &
-         & self%i_xcart, NF90_DOUBLE, "atomic_xcart", &
-         &"ATOMic structure: CARTesian positions" , "Angstrom")
+    !call ab_define_var(self%ncid, [self%d_three, self%d_natom], &
+    !     & self%i_xcart, NF90_DOUBLE, "atomic_xcart", &
+    !     &"ATOMic structure: CARTesian positions" , "Angstrom")
 
 
     ncerr = nf90_enddef(self%ncid)
@@ -273,8 +274,8 @@ module m_wann_netcdf
     ncerr = nf90_put_var(self%ncid, self%i_xred, xred, start=[1, 1], count=[3, natom])
     NCF_CHECK_MSG(ncerr, "Error when writting atomic_xred in wannier netcdf file.")
 
-    ncerr = nf90_put_var(self%ncid, self%i_xcart, xcart, start=[1, 1], count=[3, natom])
-    NCF_CHECK_MSG(ncerr, "Error when writting atomic_xred in wannier netcdf file.")
+    ! ncerr = nf90_put_var(self%ncid, self%i_xcart, xcart, start=[1, 1], count=[3, natom])
+    ! NCF_CHECK_MSG(ncerr, "Error when writting atomic_xred in wannier netcdf file.")
 #else
     NETCDF_NOTENABLED_ERROR()
     ABI_UNUSED(natom)
