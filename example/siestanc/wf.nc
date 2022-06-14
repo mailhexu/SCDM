@@ -1,1 +1,0 @@
-/home/hexu/projects/SCDM/example/SrMnO3/SrMnO3/SrMnO3/scf/z/wf.nc

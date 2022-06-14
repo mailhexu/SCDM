@@ -352,8 +352,8 @@ class SislWFSXWrapper(SislWrapper):
     solve_all = find_all
 
 
-def write_to_netcdf(folder=None, spin="soc", fdf_fname="siesta.fdf",
-                    wfxfname="siesta.fullBZ.WFSX", ncfname="wf.nc"):
+def test_write_netcdf(folder=None, spin="soc", fdf_fname="siesta.fdf",
+                      wfxfname="siesta.fullBZ.WFSX", ncfname="wf.nc"):
     if spin != "soc":
         raise NotImplementedError("currently only spin=soc is implemented.")
     from sisl.physics.spin import Spin
@@ -370,5 +370,5 @@ def write_to_netcdf(folder=None, spin="soc", fdf_fname="siesta.fdf",
     model.write_to_netcdf(ncfname)
 
 
-write_to_netcdf(folder='./', fdf_fname='siesta.fdf',
-                wfxfname="siesta.fullBZ.WFSX", ncfname='wf.nc')
+test_write_netcdf(folder='./', fdf_fname='siesta.fdf',
+                  wfxfname="siesta.fullBZ.WFSX")

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.1)
 enable_language(Fortran)
 set(cmake_dir "${CMAKE_CURRENT_SOURCE_DIR}/CMake")
 
+
 list(INSERT CMAKE_MODULE_PATH 0 "${cmake_dir}")
 
 project(scdm)
@@ -34,12 +35,21 @@ add_definitions(${MPI_Fortran_COMPILE_FLAGS})
 link_directories(${MPI_Fortran_LIBRARIES})
 
 
+
+find_package ( jsonfortran-${CMAKE_Fortran_COMPILER_ID} 8.3.0 REQUIRED )
+#find_package ( jsonfortran 8.3.0 REQUIRED )
+
+
 # libjson
-set (Json_Fortran_INLCUDE_PATH /home/hexu/.local/jsonfortran-gnu-8.3.0/lib)
-set (Json_Fortran_LIBRARY_PATH /home/hexu/.local/jsonfortran-gnu-8.3.0/lib)
-set (Json_Fortran_LIBRARIES jsonfortran)
-include_directories(${Json_Fortran_INLCUDE_PATH})
+#set (Json_Fortran_INLCUDE_PATH /home/hexu/.local/jsonfortran-gnu-8.3.0/lib)
+#set (Json_Fortran_LIBRARY_PATH /home/hexu/.local/jsonfortran-gnu-8.3.0/lib)
+#set (Json_Fortran_LIBRARIES jsonfortran::jsonfortran)
+
+#include_directories(${Json_Fortran_INLCUDE_PATH})
+include_directories(${jsonfortran_INCLUDE_DIRS})
 link_directories(${Json_Fortran_LIBRARY_PATH})
+link_directories(${jsofortran_LIBRARY_DIRS})
+
 
 set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/mods)
 
@@ -71,8 +81,8 @@ add_library(scdm SHARED
 target_include_directories(scdm PUBLIC
     "src/common"
     )
-target_link_libraries(scdm ${lapackblas_libraries} ${MPI_Fortran_LIBRARIES} ${NETCDF_LIBRARIES_F90} ${Json_Fortran_LIBRARIES})
-#target_link_libraries(scdm ${lapackblas_libraries}  ${NETCDF_LIBRARIES_F90})
+#target_link_libraries(scdm ${lapackblas_libraries} ${MPI_Fortran_LIBRARIES} ${NETCDF_LIBRARIES_F90}  ${Json_Fortran_LIBRARIES})
+target_link_libraries(scdm ${lapackblas_libraries} ${MPI_Fortran_LIBRARIES} ${NETCDF_LIBRARIES_F90} jsonfortran-gnu::jsonfortran )
 
 
 target_link_libraries(scdm )
@@ -101,6 +111,9 @@ add_executable(sdown
 	)	
 
 target_link_libraries(sdown scdm)
+
+install(TARGETS scdm DESTINATION lib)
+install(TARGETS sdown DESTINATION bin)
 
 #add_executable(testscdm
 #  src/m_math.F90
