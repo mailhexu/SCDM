@@ -68,7 +68,7 @@ module m_wann_netcdf
     character(len=*), intent(in):: filename
 #if defined HAVE_NETCDF
     integer:: ncerr
-    ncerr = nf90_create(path = trim(filename), cmode = NF90_CLOBBER, ncid = self%ncid)
+    ncerr = nf90_create(path = trim(filename), cmode = NF90_NETCDF4, ncid = self%ncid)
     NCF_CHECK_MSG(ncerr, "Error when creating wannier netcdf  file")
 #else
     NETCDF_NOTENABLED_ERROR()

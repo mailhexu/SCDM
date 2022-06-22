@@ -248,7 +248,7 @@ class SislWFSXWrapper(SislWrapper):
                               order='C')[~is_duplicate]
 
     def write_to_netcdf(self, fname):
-        root = Dataset(fname, 'w')
+        root = Dataset(fname, 'w', data_model='NETCDF4')
         nkpt, three = self.wfsx_kpts.shape
         print(f"nkpt: {nkpt}")
         print(f"three: {three}")
