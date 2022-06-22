@@ -49,6 +49,7 @@ find_package ( jsonfortran-${CMAKE_Fortran_COMPILER_ID} 8.3.0 REQUIRED )
 include_directories(${jsonfortran_INCLUDE_DIRS})
 link_directories(${Json_Fortran_LIBRARY_PATH})
 link_directories(${jsofortran_LIBRARY_DIRS})
+string(TOLOWER ${CMAKE_Fortran_COMPILER_ID} jsonfortran_POSTFIX)
 
 
 set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/mods)
@@ -81,8 +82,10 @@ add_library(scdm SHARED
 target_include_directories(scdm PUBLIC
     "src/common"
     )
+
 #target_link_libraries(scdm ${lapackblas_libraries} ${MPI_Fortran_LIBRARIES} ${NETCDF_LIBRARIES_F90}  ${Json_Fortran_LIBRARIES})
-target_link_libraries(scdm ${lapackblas_libraries} ${MPI_Fortran_LIBRARIES} ${NETCDF_LIBRARIES_F90} jsonfortran-gnu::jsonfortran )
+#target_link_libraries(scdm ${lapackblas_libraries} ${MPI_Fortran_LIBRARIES} ${NETCDF_LIBRARIES_F90} jsonfortran-gnu::jsonfortran )
+target_link_libraries(scdm ${lapackblas_libraries} ${MPI_Fortran_LIBRARIES} ${NETCDF_LIBRARIES_F90} jsonfortran-${jsonfortran_POSTFIX}::jsonfortran )
 
 
 target_link_libraries(scdm )
