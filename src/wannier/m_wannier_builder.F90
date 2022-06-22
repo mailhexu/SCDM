@@ -287,7 +287,7 @@ contains
     real(dp), intent(in) ::  anchor_kpt(:)
     integer, optional, intent(in):: anchor_ibands(:)
     complex(dp), pointer :: psik(:,:)
-    character(len = 500):: msg
+    character(len = 100+self%nwann*10):: msg
     integer :: i
     ABI_MALLOC(self%anchor_ibands, (self%nwann))
     ABI_MALLOC(self%anchor_kpt, (size(anchor_kpt)))
@@ -342,7 +342,7 @@ contains
     real(dp):: weight(self%nband)
     !real(dp), pointer:: evals_anchor(:)
     !type(eigensolver):: esolver
-    character(len = 500):: msg
+    character(len = 100+10*self%nwann):: msg
     ! find anchor points, by default gamma
     self%anchor_ikpt = self%find_kpoint(self%anchor_kpt)
     ! TODO: add qpt if anchor_ikpt is not found
