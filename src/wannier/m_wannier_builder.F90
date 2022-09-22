@@ -297,9 +297,10 @@ contains
 
     if (.not. present(anchor_ibands)) then
        !call wrtout( std_out, "Anchor points not specified, finding atomatically")
+       print *,  "Anchor points not specified, finding atomatically"
        call self%auto_find_anchors( self%anchor_ibands)
     else if (.not. size(anchor_ibands) == self%nwann) then
-       !ABI_ERROR("The number of anchor points should be equal to the number of Wannier functions.")
+       print *, "The number of anchor points should be equal to the number of Wannier functions."
     else
        self%anchor_ibands = anchor_ibands
     end if

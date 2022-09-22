@@ -65,8 +65,10 @@ contains
     ptr=>self%get_psi_k(ikpt=1)
 
  if (self%params%method ==1 ) then
-    if(self%params%anchor_ibands(1) > 0) then
-       call self%set_anchor( self%params%anchor_kpt, self%params%anchor_ibands)
+    !if(allocated(self%params%anchor_ibands)) then
+       if(self%params%anchor_ibands(1) > 0) then
+          call self%set_anchor( self%params%anchor_kpt, self%params%anchor_ibands)
+       !endif
     else
        call self%set_anchor(anchor_kpt = self%params%anchor_kpt)
     end if

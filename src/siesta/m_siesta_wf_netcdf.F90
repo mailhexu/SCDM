@@ -194,6 +194,7 @@ contains
     call check(nf90_get_var(ncid, var_id, evecs_imag, start=[1,1, ik], count=[wf%nbasis, wf%nband, 1]), &
          & "reading var eigenvectors_imag")
     evecs(:,:) = cmplx(transpose(evecs_real), transpose(evecs_imag), kind=dp)
+    !evecs(:,:) = cmplx(evecs_real, evecs_imag), kind=dp)
   end subroutine get_evecs_for_one_kpoint
 
 

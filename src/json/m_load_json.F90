@@ -119,10 +119,10 @@ contains
     if ( .not. found ) then
        if (params%project_to_anchor) then
           print *, "anchor_ibands not found in json config file, will decide automatically."
-          allocate(params%anchor_ibands(params%nwann))
-          params%anchor_ibands(:) = -1
+       allocate(params%anchor_ibands(params%nwann))
+       params%anchor_ibands(:) = -1
        end if
-    end if
+        end if
     call json%destroy()
     if (json%failed()) stop "Parse Json file failed."
     call params%print()

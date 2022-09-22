@@ -1,25 +1,25 @@
 {
-    "method": 1,
-    "disentangle_func_type": "gauss",
-    "mu": -4,
-    "sigma": 5,
     "kmesh": [
-        6,
-        6,
+        6, 
+        6, 
         6
-    ],
-    "nwann": 5,
-    "project_to_anchor": true,
+    ], 
     "anchor_kpt": [
-        0,
-        0,
+        0, 
+        0, 
         0
-    ],
+    ], 
+    "disentangle_func_type": "gauss", 
+    "nwann": 5, 
+    "mu": -4, 
     "anchor_ibands": [
-        46,
-        47,
-        48,
-        49,
+        46, 
+        47, 
+        48, 
+        49, 
         50
-    ]
+    ], 
+    "project_to_anchor": true, 
+    "sigma": 5, 
+    "method": 1
 }
