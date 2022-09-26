@@ -215,6 +215,7 @@ class SislWFSXWrapper(SislWrapper):
         evals = []
         evecs = []
         wfsx_kpts = []
+        wfsx_weights = []
 
         def change_gauge(k, evec):
             """ Change the eigenvector gauge """
@@ -230,17 +231,22 @@ class SislWFSXWrapper(SislWrapper):
         # Read wavefunctions and eigenvalues
         for wfc in self.wfsx_sile.yield_eigenstate():
             wfsx_kpts.append(wfc.info['k'])
+            wfsx_weights.append(wfc.info['weight'])
             evals.append(wfc.c)
             # To get the same eigvecs as eigh returns we need to transpose the
             # array and change the gauge from 'r' to 'R'
             evecs.append(change_gauge(wfc.info['k'], wfc.state).T)
 
         wfsx_kpts = np.asarray(wfsx_kpts)
+        wfsx_weights = np.asarray(wfsx_weights)
 
         # If any k-point occurs more than once in the WaveFuncKPoints block,
         # we discard the duplicates
         is_duplicate = self._is_duplicate(wfsx_kpts)
         self.wfsx_kpts = wfsx_kpts[~is_duplicate]
+        self.wfsx_weights = wfsx_weights[~is_duplicate]
+        # Normalize weights
+        self.wfsx_weights /= np.sum(self.wfsx_weights)
         self.evals = np.array(evals, dtype=float)[~is_duplicate]
         if self.shift_fermi is not None:
             self.evals += self.shift_fermi
@@ -293,8 +299,7 @@ class SislWFSXWrapper(SislWrapper):
         root.variables["atomic_numbers"][:] = self.atoms.get_atomic_numbers()
         root.variables["eigenvalues"][:] = self.evals
         root.variables["kpts"][:] = self.wfsx_kpts
-        root.variables["kweights"][:] = np.ones(
-            nkpt, dtype=float)/nkpt
+        root.variables["kweights"][:] =  self.wfsx_weights
         # print(self.orbs)
         # print(len(self.orbs))
         #root.variables["orb_names"][:] = self.orbs
@@ -351,9 +356,20 @@ class SislWFSXWrapper(SislWrapper):
     # Define alias for find_all to unify in wrapper's interface
     solve_all = find_all
 
+    def set_kweights(self, kpts, kweights):
+        
+        kpts = np.asarray(kpts)
+        sort_idx = np.where(
+            np.all(np.isclose(self.wfsx_kpts[None, :], kpts[:, None]),
+                   axis=-1))[1]
+        print(self.wfsx_weights)
+        print(self.wfsx_weights[sort_idx])
+        self.wfsx_weights[sort_idx] = kweights
+
 
 def write_to_netcdf(folder=None, spin="soc", fdf_fname="siesta.fdf",
-                    wfxfname="siesta.fullBZ.WFSX", ncfname="wf.nc"):
+                    wfxfname="siesta.fullBZ.WFSX", kwfname=None,
+                    ncfname="wf.nc"):
     if spin != "soc":
         raise NotImplementedError("currently only spin=soc is implemented.")
     from sisl.physics.spin import Spin
@@ -367,8 +383,17 @@ def write_to_netcdf(folder=None, spin="soc", fdf_fname="siesta.fdf",
         efermi = fdf.read_fermi_level()
     model = SislWFSXWrapper(geom, wfsx_sile, spin=Spin(spin),
                             ispin=None, shift_fermi=None)
+
+    if kwfname is not None:
+        tmp = np.genfromtxt(kwfname)
+        kpts = tmp[:,:3]
+        kweights = tmp[:,3]
+        model.set_kweights(kpts, kweights)
+
     model.write_to_netcdf(ncfname)
 
 
-write_to_netcdf(folder='./', fdf_fname='siesta.fdf',
-                wfxfname="siesta.fullBZ.WFSX", ncfname='wf.nc')
+write_to_netcdf(folder='../siesta', fdf_fname='in.fdf',
+                wfxfname="../siesta/graphene.selected.WFSX",
+                kwfname='kpoints',
+                ncfname='wfk.nc')
