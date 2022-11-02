@@ -45,7 +45,7 @@ module m_wannier_builder
   use m_io_tools,        only : open_file
   use m_fstrings,        only : ltoa
   use m_scdm_math, only: complex_QRCP_piv_only, complex_svd, tpi_im, &
-       & gaussian, fermi, insertion_sort_double, eigensolver
+       & gaussian, fermi, insertion_sort_double, eigensolver, insertion_sort_int
   use m_wann_netcdf, only: IOWannNC
   implicit none
   private
@@ -98,6 +98,7 @@ module m_wannier_builder
      procedure:: initialize
      procedure:: finalize
      procedure:: get_psi_k
+     procedure:: get_Sk
      procedure:: get_evals_k
      procedure:: run_all
      procedure:: find_kpoint
@@ -252,6 +253,18 @@ contains
     ABI_ERROR("WannierBuilder_t%get_psi_k should be overrided!")
   end function get_psi_k
 
+  function get_Sk(self, ikpt) result (Sk)
+    class(WannierBuilder_t),  intent(inout):: self
+    integer, intent(in):: ikpt
+    complex(dp), pointer :: Sk(:, :)
+    ABI_UNUSED_A(self)
+    ABI_UNUSED_A(ikpt)
+    ABI_UNUSED_A(Sk)
+    ABI_ERROR("WannierBuilder_t%get_Sk should be overrided!")
+  end function get_Sk
+
+
+
   function get_evals_k(self, ikpt) result(ek)
     class(WannierBuilder_t), intent(inout):: self
     integer, intent(in):: ikpt
@@ -274,10 +287,11 @@ contains
     call self%get_weight(self%anchor_ikpt, self%disentangle_func_type, &
          & self%mu, self%sigma, weights, project_to_anchor=.False.)
     call insertion_sort_double(weights, order)
-
     do i = 1, self%nwann
        ianchors(i)= order(self%nband-i+1)
     end  do
+    call insertion_sort_int(ianchors)
+    !print *, "Index of band selected as anchors:", ianchors
   end subroutine auto_find_anchors
 
   subroutine set_anchor(self, anchor_kpt, anchor_ibands)
@@ -306,11 +320,13 @@ contains
     end if
     write(msg, "(2a)") "Anchor point band indices set to ", trim(ltoa(self%anchor_ibands))
     !call wrtout([ab_out, std_out], msg )
-     
+
     psik=> self%get_psi_k(self%anchor_ikpt)
     do i = 1, self%nwann
-        self%projectors(:, i)=psik(:, self%anchor_ibands(i))
-  end do
+       self%projectors(:, i)=psik(:, self%anchor_ibands(i))
+    end do
+    !self%projectors(:, :) =matmul( self%get_Sk(self%anchor_ikpt),  self%projectors)
+
   end subroutine set_anchor
 
 
@@ -341,8 +357,6 @@ contains
     complex(dp):: psi_dagger(self%nband, self%nbasis)
     complex(dp):: psi_dagger_copy(self%nband, self%nbasis)
     real(dp):: weight(self%nband)
-    !real(dp), pointer:: evals_anchor(:)
-    !type(eigensolver):: esolver
     character(len = 100+10*self%nwann):: msg
     ! find anchor points, by default gamma
     self%anchor_ikpt = self%find_kpoint(self%anchor_kpt)
@@ -353,9 +367,9 @@ contains
     !end if
     ! calculate weight matrix for each kpoint
     call self%get_weight(self%anchor_ikpt, self%disentangle_func_type, self%mu, self%sigma, weight, &
-            &project_to_anchor = .True.)
+            &project_to_anchor = .False.)
            ! &project_to_anchor = self%project_to_anchor)
-
+    !print *, "weight:", weight
     ! at anchor-kpoint, find cols
     ! psi: (ibasis, iband)
     psi_dagger = transpose(conjg(self%get_psi_k(self%anchor_ikpt)))
@@ -364,26 +378,46 @@ contains
     end do
     psi_dagger_copy(:,:) = psi_dagger(:,:)
     call self%get_columns(psi_dagger_copy, self%cols)
+    call insertion_sort_int(self%cols)
     write(msg, '(2a) ') 'Columns selected: ', trim(ltoa(self%cols))
+    print *, trim(msg)
+    !print *, "ncols:", size(self%cols)
+    !print *, "cols:", self%cols
     !call wrtout([ab_out, std_out], msg )
+    if (.False.) then 
+       !print *, "Checking anchor eigen..."
+     call check_anchor_eigen()
+    end if
 
-    !psi_dagger_copy(:,:) = psi_dagger(:,:)
-    !! check the eigen values:
-    !call self%get_Amnk(self%anchor_ikpt, Amn)
-    !! print the anchor point eigen values:
-    !evals_anchor => self%get_evals_k(self%anchor_ikpt)
-    !call Amn_to_H_from_evals(Amn, evals_anchor, &
-    !    & self%nwann, self%nband, Hwann)
-    !evals = evals_anchor(self%anchor_ibands)
+    contains
+    subroutine check_anchor_eigen() 
+    real(dp) :: evals(self%nwann)
+    real(dp), pointer:: evals_anchor(:)
+    complex(dp) :: Amn(self%nband, self%nwann)
+    complex(dp) :: Hwann(self%nwann, self%nwann)
+    type(eigensolver):: esolver
+    psi_dagger_copy(:,:) = psi_dagger(:,:)
+    ! check the eigen values:
+    call self%get_Amnk(self%anchor_ikpt, Amn)
+    ! print the anchor point eigen values:
+    evals_anchor => self%get_evals_k(self%anchor_ikpt)
+    call Amn_to_H_from_evals(Amn, evals_anchor, &
+        & self%nwann, self%nband, Hwann)
+    evals = evals_anchor(self%anchor_ibands)
+    !msg=""
     !write(msg, '(2a)') "The eigen values of the anchor points: ", &
     !     & trim(ltoa(evals))
     !call wrtout([ab_out, std_out], msg )
-    !! calculate the eigen values of the Hwannk at anchor point
-    !call esolver%run(evals, Hwann)
-    !write(msg, '(2a)') "The eigen values of Hwann(k_anchor):   ", &
-    !     & trim(ltoa(evals))
-    !call wrtout([ab_out, std_out], msg )
-    !call esolver%finalize()
+    ! print *, msg
+    print *,  "The eigen values of the all anchor points: ", evals_anchor
+     print *,  "The eigen values of the selected anchor points: ", evals
+
+    ! calculate the eigen values of the Hwannk at anchor point
+    call esolver%run(evals, Hwann)
+    print *, "The eigen values of the Wannier functions:", evals
+    call esolver%finalize()
+    end subroutine check_anchor_eigen
+
   end subroutine select_columns
 
   subroutine construct_wannier(self)
@@ -508,7 +542,7 @@ contains
         do iband = 1, self%nband
              proj = 0.0_dp
              do ianchor = 1, size(self%anchor_ibands)
-               p = dot_product(self%projectors(:, ianchor), psik(:, iband))
+                p = dot_product(self%projectors(:, ianchor),psik(:, iband))
                proj = proj+real(conjg(p)*p)
              end do
             weight(iband) = weight(iband)*proj
@@ -519,8 +553,8 @@ contains
 
   subroutine get_columns(self, psi_dagger, cols)
     class(WannierBuilder_t), intent(inout):: self
-    complex(dp), intent(in):: psi_dagger(:, :)
-    integer:: piv(size(psi_dagger, 2))
+    complex(dp), intent(in):: psi_dagger(:, :) ! nband, nbasis
+    integer:: piv(self%nbasis)
     integer, intent(inout):: cols(self%nwann)
     call complex_QRCP_piv_only(psi_dagger, piv)
     cols = piv(:self%nwann)
@@ -626,6 +660,10 @@ contains
     ! Hwann = A\dagger @ E @ A
     Hwann = matmul(tmp, Amn)
   end subroutine Amn_to_H_from_evals
+
+  !subroutine check_H_consistency(evals, Hwann)
+    
+  !end subroutine check_H_consistency
 
   subroutine Amn_to_H(Amn, psi, H0, nbasis, nwann, Hwann)
     ! Hwann = psi\dagger A

@@ -240,7 +240,7 @@ class SislWFSXWrapper(SislWrapper):
             # To get the same eigvecs as eigh returns we need to transpose the
             # array and change the gauge from 'r' to 'R'
             #evecs.append(Smh @ change_gauge(wfc.info['k'], wfc.state).T)
-            evecs.append(change_gauge(wfc.info['k'], wfc.state))
+            evecs.append(change_gauge(wfc.info['k'], wfc.state).T)
 
         wfsx_kpts = np.asarray(wfsx_kpts)
         wfsx_weights = np.asarray(wfsx_weights)

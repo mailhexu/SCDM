@@ -50,6 +50,7 @@ module m_scdm_math
   public:: gaussian
   public:: fermi
   public:: insertion_sort_double
+  public:: insertion_sort_int
   public:: build_Rgrid
   private
 
@@ -84,6 +85,7 @@ contains
     CALL ZGEQP3(m, n, A, m, piv, tau, work, lwork, rwork, info)
     if(info /= 0) then
        !ABI_ERROR("Error in doing QRCP")
+       print *, "Error in doing QRCP"
     endif
     ABI_SFREE(work)
   end subroutine complex_QRCP_Piv_only
@@ -137,7 +139,7 @@ contains
 
     M = size(A, 1)
     N = size(A, 2)
-    LWMAX = max(size(A, 1), size(A, 2))*10
+    LWMAX = max(M, N)*10
     LDA = M
     LDU = M
     LDVT = N
@@ -151,6 +153,7 @@ contains
          WORK, LWORK, rwork, INFO )
     IF( INFO .GT. 0 ) THEN
        !ABI_ERROR('The algorithm computing SVD failed to converge.')
+       print *, 'The algorithm computing SVD failed to converge.'
        STOP
     END IF
     ABI_SFREE(work)
@@ -219,7 +222,7 @@ contains
   end subroutine eigensolver_finalize
 
   !----------------------------------------------------------------------
-  !> @brief insertion_sort_int: sort a array using insertion sort algorithm
+  !> @brief insertion_sort_double: sort a array using insertion sort algorithm
   !>  it is a memory safe method but is generally slow.
   !> @param[inout]  a: the array to be sorted. and will output inplace
   !> @param[inout] order (optional) the sorted index, it can be used to sort
@@ -250,6 +253,39 @@ contains
     end do
 
   end subroutine insertion_sort_double
+  !----------------------------------------------------------------------
+  !> @brief insertion_sort_int: sort a array using insertion sort algorithm
+  !>  it is a memory safe method but is generally slow.
+  !> @param[inout]  a: the array to be sorted. and will output inplace
+  !> @param[inout] order (optional) the sorted index, it can be used to sort
+  !>  other arrays so that the order in consistent.
+  !----------------------------------------------------------------------
+  subroutine insertion_sort_int(a, order)
+    integer, intent(inout):: a(:)
+    integer, optional, intent(inout):: order(size(a))
+    integer:: n, i, j
+    integer :: v
+    n = size(a)
+    if (present(order)) then
+       do i = 1, n
+          order(i)=i
+       end do
+    end if
+    do i = 2, n
+       v = a(i)
+       j = i-1
+       do while(j >= 1 )
+          if (a(j)<=v) exit
+          a(j+1)=a(j)
+          if(present(order)) order(j+1)=order(j)
+          j = j-1
+       end do
+       a(j+1)=v
+       if(present(order)) order(j+1)=i
+    end do
+
+  end subroutine insertion_sort_int
+
 
 
   ! -4/2-> -1, 4/2->2. Then (-1, 0, 1, 2)

@@ -19,11 +19,13 @@ module m_siesta_wannier_builder
      integer:: current_ik = -1
      real(dp), allocatable:: evals_cache(:)
      complex(dp), pointer:: psi_k_cache(:, :)
+     complex(dp), pointer :: Sk_cache(:, :)
    contains
      procedure :: load
      procedure :: read_config
      procedure :: set_wfk_file
      procedure :: get_psi_k
+     procedure :: get_Sk
      procedure :: get_evals_k
      procedure :: run_all
      procedure :: finalize
@@ -37,7 +39,6 @@ contains
     character(len=*), intent(in) :: wfk_fname
     integer, allocatable ::  Rlist(:,:)
     integer :: disentangle_func_type
-    complex(dp), pointer :: ptr(:, :)
 
     call self%read_config(config_fname)
     call self%set_wfk_file(wfk_fname)
@@ -62,7 +63,7 @@ contains
          & self%params%project_to_anchor, self%params%method)
 
     ABI_MALLOC(self%psi_k_cache, (self%nbasis, self%nband))
-    ptr=>self%get_psi_k(ikpt=1)
+    ABI_MALLOC(self%Sk_cache, (self%nbasis, self%nbasis))
 
  if (self%params%method ==1 ) then
     !if(allocated(self%params%anchor_ibands)) then
@@ -72,6 +73,9 @@ contains
     else
        call self%set_anchor(anchor_kpt = self%params%anchor_kpt)
     end if
+
+    print *, "anchor_ibands: ", self%anchor_ibands
+
     ! output information
  else if(self%params%method == 2) then
     ! TODO: projected lattice wannier function
@@ -80,9 +84,6 @@ contains
     !call self%set_disp_projector(params%lwf_projector)
     !write(msg, '(2a)')  ' The projectors: ', trim(ltoa(dtset%lwf_projector))
   end if
-
-
-
   end subroutine load
 
   subroutine finalize(self)
@@ -90,6 +91,9 @@ contains
     call self%params%finalize()
     call self%wf%finalize()
     call self%WannierBuilder_t%finalize()
+    ABI_FREE(self%Sk_cache)
+    ABI_FREE(self%psi_k_cache)
+    Nullify(self%psi_k_cache)
   end subroutine finalize
 
   subroutine read_config(self, fname)
@@ -106,7 +110,7 @@ contains
   end subroutine set_wfk_file
 
   function get_psi_k(self, ikpt) result (psik)
-    class(siesta_wannier_builder_t),  intent(inout):: self
+    class(siesta_wannier_builder_t),   intent(inout):: self
     integer, intent(in):: ikpt
     complex(dp), pointer:: psik(:, :)
     if (self%current_ik /= ikpt) then
@@ -123,6 +127,13 @@ contains
     ek=> self%wf%eigenvalues(:, ikpt)
   end function get_evals_k
 
+  function get_Sk(self, ikpt) result (Sk)
+    class(siesta_wannier_builder_t),  intent(inout):: self
+    integer, intent(in):: ikpt
+    complex(dp), pointer :: Sk(:, :)
+    call self%wf%get_Sk(ikpt, self%Sk_cache)
+    Sk => self%Sk_cache
+  end function get_Sk
 
   
   subroutine run_all(self, ncfilename, Amnkfilename)
@@ -146,9 +157,6 @@ contains
     call self%write_Amnk_w90(trim(Amnkfilename))
   end subroutine run_all
 
-
-
- 
 
   subroutine test_siesta_wannier_builder_t(self)
     type(siesta_wannier_builder_t) :: self

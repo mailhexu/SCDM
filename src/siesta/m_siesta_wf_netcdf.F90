@@ -33,6 +33,7 @@ module m_siesta_wf_netcdf
    contains
      procedure :: read_from_netcdf
      procedure :: get_evecs_for_one_kpoint
+     procedure :: get_Sk
      procedure :: finalize
   end type siesta_wf_t
 
@@ -193,10 +194,31 @@ contains
          & "inquire eigenvectors_imag id")
     call check(nf90_get_var(ncid, var_id, evecs_imag, start=[1,1, ik], count=[wf%nbasis, wf%nband, 1]), &
          & "reading var eigenvectors_imag")
-    evecs(:,:) = cmplx(transpose(evecs_real), transpose(evecs_imag), kind=dp)
-    !evecs(:,:) = cmplx(evecs_real, evecs_imag), kind=dp)
+    !evecs(:,:) = cmplx(transpose(evecs_real), transpose(evecs_imag), kind=dp)
+    evecs(:,:) = cmplx(evecs_real, evecs_imag, kind=dp)
   end subroutine get_evecs_for_one_kpoint
 
+
+ subroutine get_Sk(wf,  ik,  Sk)
+    class(siesta_wf_t), intent(inout) :: wf
+    integer, intent(in) ::  ik
+    complex(dp), intent(inout) :: Sk(wf%nbasis,wf%nbasis)
+    integer :: ncid,var_id
+    real(dp) :: Sk_real(wf%nbasis, wf%nbasis)
+    real(dp) :: Sk_imag(wf%nbasis, wf%nbasis)
+
+    ncid = wf%wffile%ncid
+    call check(nf90_inq_varid(ncid, "overlaps_real", var_id), &
+         & "inquire overlaps_real id")
+    call check(nf90_get_var(ncid, var_id, Sk_real, start=[1,1, ik], count=[wf%nbasis, wf%nbasis, 1]), &
+         & "reading var overlaps_real")
+
+    call check(nf90_inq_varid(ncid, "overlaps_imag", var_id), &
+         & "inquire overlaps_imag id")
+    call check(nf90_get_var(ncid, var_id, Sk_imag, start=[1,1, ik], count=[wf%nbasis, wf%nbasis, 1]), &
+         & "reading var overlaps_imag")
+    Sk(:,:) = cmplx(Sk_real, Sk_imag, kind=dp)
+  end subroutine get_Sk
 
   subroutine finalize(wf)
     class(siesta_wf_t), intent(inout) :: wf
